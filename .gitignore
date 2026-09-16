@@ -1,0 +1,9 @@
+node_modules/
+dist/
+*.log
+
+# The rules reference is near-verbatim book text. It is generated locally by
+# tools/extract-rules.mjs and lives in Foundry's Data directory — it must never
+# be committed or shipped in a release.
+blood-oracle-rules.json
+*-rules.json

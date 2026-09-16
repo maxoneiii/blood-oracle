@@ -1,0 +1,2008 @@
+/* EB Garamond is declared in fonts/fonts.css, loaded as a second stylesheet
+   from module.json. Keeping it out of this file stops the bundler inlining the
+   woff2 files as base64, which bloated the CSS tenfold. */
+
+/* ==========================================================================
+   Design tokens, carried over from the standalone Blood Oracle app.
+   These are the sheet's identity. Components reference them rather than
+   repeating literal values, so the scale stays consistent across tabs.
+   ========================================================================== */
+
+.blood-oracle {
+  --bo-text: #ede0d8;
+  --bo-text-dim: #b89898;
+  --bo-text-muted: #7a5858;
+  --bo-text-faint: #5a3838;
+  --bo-accent: #c8a060;
+  --bo-accent-red: #b8302e;
+  --bo-red-glow: #ff3050;
+  --bo-hunger: #ff2030;
+  --bo-wp: #b8a0e0;
+  --bo-wp-dim: #8a6090;
+
+  --bo-panel-bg: rgba(20, 6, 8, 0.5);
+  --bo-panel-border: #3a1010;
+  --bo-field-bg: rgba(20, 6, 8, 0.6);
+  --bo-field-border: #3a1818;
+  /* Unfilled dots sit on dark panels and were hard to count; this is the
+     outline they use, a step brighter than the general field border. */
+  --bo-dot-empty: #5f2a2e;
+
+  /* Fixed across every splat: dots and Humanity are gold, and damage is red,
+     because those read as the same thing on any character sheet. Splats
+     override the surrounding palette, never these. */
+  --bo-dot: #c8a060;
+  --bo-humanity: #c8a060;
+  --bo-damage: #ff3030;
+  --bo-damage-soft: #ff6060;
+
+  /* Rules, edges and glows. These were literal reds, which meant every splat
+     inherited the vampire's palette through the back door. */
+  --bo-rule: #5a1020;
+  --bo-edge: #8b1a2a;
+  --bo-glow-rgb: 184, 48, 46;
+
+  /* Damage and rating boxes */
+  --bo-box-bg: linear-gradient(135deg, #1a0608, #0a0204);
+  --bo-box-border: #3a1010;
+  --bo-box-border-lit: #6a2030;
+  --bo-box-fill: linear-gradient(135deg, #4a0a14, #2a0408);
+  --bo-card-bg: #1a0c0e;
+  --bo-damage-stroke: #ff3030;
+  --bo-damage-stroke-soft: #ff6060;
+
+  /* Solid call-to-action button */
+  --bo-solid-bg: linear-gradient(180deg, #6a0a18 0%, #3a0510 60%, #1a0204 100%);
+  --bo-solid-border: #8b1a2a;
+  --bo-solid-text: #f8e0d8;
+  --bo-header-button-bg: linear-gradient(180deg, rgba(40, 14, 18, 0.9), rgba(20, 6, 8, 0.9));
+  --bo-danger-text: #e88a86;
+  --bo-danger-text-hot: #ffb0ac;
+
+  --bo-serif: 'EB Garamond', Georgia, serif;
+  --bo-mono: ui-monospace, Menlo, Consolas, monospace;
+
+  /* Matches the standalone app. An earlier guess dropped this a step for the
+     sheet window, which just made everything harder to read. */
+  --bo-size-body: 18px;
+  --bo-size-label: 14px;
+  --bo-line-prose: 1.55;
+}
+
+/* ==========================================================================
+   Shell
+   ========================================================================== */
+
+.application.blood-oracle .window-content {
+  padding: 0;
+  background: radial-gradient(ellipse at top, #241010 0%, #140909 50%, #0a0505 100%);
+  overflow: hidden;
+}
+
+.blood-oracle .blood-oracle-root {
+  position: relative;
+  container-type: inline-size;
+  height: 100%;
+  overflow: auto;
+  color: var(--bo-text);
+  font-family: var(--bo-serif);
+  font-size: var(--bo-size-body);
+  line-height: 1.45;
+}
+
+.blood-oracle .bo-app {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  padding: 20px 24px 28px;
+  box-sizing: border-box;
+}
+
+/* ==========================================================================
+   Header and tabs
+   ========================================================================== */
+
+.blood-oracle .bo-header {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--bo-panel-border);
+}
+
+.blood-oracle .bo-portrait {
+  width: 72px;
+  height: 72px;
+  object-fit: cover;
+  border: 1px solid var(--bo-field-border);
+  border-radius: 2px;
+  flex: none;
+}
+
+.blood-oracle .bo-name {
+  font: 600 30px var(--bo-serif);
+  color: var(--bo-text);
+  margin: 0;
+}
+
+/* Clan · generation line, in the spirit of the standalone app's masthead. */
+.blood-oracle .bo-subtitle {
+  font-size: 15px;
+  color: var(--bo-text-muted);
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  margin: 3px 0 0;
+}
+
+.blood-oracle .bo-tabs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 14px 0 20px;
+  border-bottom: 1px solid var(--bo-panel-border);
+}
+
+.blood-oracle .bo-tab {
+  padding: 8px 14px;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--bo-text-muted);
+  font-family: inherit;
+  /* Held apart from the body scale: the tab strip should not grow every time
+     the reading size does. */
+  font-size: 15px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.blood-oracle .bo-tab:hover {
+  color: var(--bo-text-dim);
+}
+
+.blood-oracle .bo-tab-active {
+  color: var(--bo-accent);
+  border-bottom-color: var(--bo-accent);
+}
+
+/* ==========================================================================
+   Section titles — red, spaced, with a fading rule beneath
+   ========================================================================== */
+
+.blood-oracle .bo-section {
+  margin-bottom: 18px;
+}
+
+.blood-oracle .bo-section-title {
+  font: 600 16px var(--bo-serif);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--bo-accent-red);
+  text-shadow: 0 0 12px rgba(var(--bo-glow-rgb), 0.35);
+  margin: 0;
+}
+
+.blood-oracle .bo-section-sub {
+  font-size: var(--bo-size-body);
+  color: var(--bo-text-muted);
+  font-style: italic;
+  margin: 3px 0 0;
+}
+
+.blood-oracle .bo-section-rule {
+  height: 1px;
+  background: linear-gradient(90deg, var(--bo-rule), transparent);
+  margin-top: 8px;
+}
+
+/* ==========================================================================
+   Master / detail
+   ========================================================================== */
+
+.blood-oracle .bo-master-detail {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 22px;
+  align-items: start;
+}
+
+/* Two columns need roughly 900px of sheet width. Below that the detail panel
+   stacks under the tree instead of being squeezed. */
+@container (max-width: 900px) {
+  .blood-oracle .bo-master-detail {
+    grid-template-columns: 1fr;
+  }
+}
+
+.blood-oracle .bo-columns {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 16px;
+}
+
+.blood-oracle .bo-panel {
+  background: var(--bo-panel-bg);
+  border: 1px solid var(--bo-panel-border);
+  border-radius: 2px;
+  padding: 15px 17px;
+}
+
+/* ==========================================================================
+   Discipline tree
+   ========================================================================== */
+
+.blood-oracle .bo-tree-node {
+  border-left: 2px solid var(--bo-panel-border);
+  padding-left: 14px;
+  margin-bottom: 18px;
+}
+
+.blood-oracle .bo-tree-node.is-selected {
+  border-left-color: var(--bo-accent-red);
+}
+
+.blood-oracle .bo-tree-powers {
+  display: grid;
+  gap: 4px;
+  margin: 10px 0 0 14px;
+}
+
+.blood-oracle .bo-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.blood-oracle .bo-trait-name {
+  background: none;
+  border: none;
+  padding: 0;
+  width: auto;
+  color: var(--bo-text);
+  font-family: inherit;
+  font-size: var(--bo-size-body);
+  text-align: left;
+  cursor: pointer;
+  border-bottom: 1px solid transparent;
+}
+
+.blood-oracle .bo-trait-name:hover {
+  color: var(--bo-accent);
+  border-bottom-color: var(--bo-accent);
+}
+
+.blood-oracle .bo-trait-name.is-selected {
+  color: var(--bo-accent-red);
+}
+
+/* Unmet requirement: readable but clearly unavailable. */
+.blood-oracle .bo-trait-name.is-blocked {
+  color: var(--bo-text-faint);
+  font-style: italic;
+}
+
+.blood-oracle .bo-mini {
+  background: transparent;
+  border: 1px solid var(--bo-field-border);
+  border-radius: 2px;
+  color: var(--bo-text-muted);
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1;
+  padding: 4px 7px;
+  cursor: pointer;
+  flex: none;
+}
+
+.blood-oracle .bo-mini:hover {
+  color: var(--bo-accent-red);
+  border-color: var(--bo-accent-red);
+}
+
+/* ==========================================================================
+   Label / value pairs, used throughout the detail panels
+   ========================================================================== */
+
+.blood-oracle .bo-label {
+  font-size: var(--bo-size-label);
+  font-weight: 700;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--bo-accent);
+  margin-bottom: 3px;
+}
+
+.blood-oracle .bo-value {
+  font-size: var(--bo-size-body);
+  line-height: 1.4;
+  color: var(--bo-text);
+}
+
+.blood-oracle .bo-value.is-empty {
+  color: var(--bo-text-faint);
+}
+
+.blood-oracle .bo-scalars {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 13px 22px;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--bo-panel-border);
+}
+
+.blood-oracle .bo-block {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--bo-panel-border);
+}
+
+.blood-oracle .bo-prose {
+  font-size: var(--bo-size-body);
+  line-height: var(--bo-line-prose);
+  color: var(--bo-text);
+  white-space: pre-line;
+  margin: 0;
+}
+
+.blood-oracle .bo-prose.is-lead {
+  font-size: calc(var(--bo-size-body) + 1px);
+}
+
+.blood-oracle .bo-mono {
+  font-family: var(--bo-mono);
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--bo-text-dim);
+  background: rgba(20, 6, 8, 0.5);
+  padding: 10px 12px;
+  border-radius: 2px;
+  white-space: pre-line;
+}
+
+.blood-oracle .bo-detail-title {
+  font: 700 25px var(--bo-serif);
+  letter-spacing: 0.02em;
+  color: var(--bo-accent-red);
+  text-shadow: 0 0 12px rgba(var(--bo-glow-rgb), 0.4);
+  margin: 0;
+}
+
+.blood-oracle .bo-detail-sub {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--bo-text-muted);
+  margin: 2px 0 14px;
+}
+
+.blood-oracle .bo-empty {
+  color: var(--bo-text-faint);
+  font-style: italic;
+  text-align: center;
+  padding: 16px 0;
+}
+
+/* ==========================================================================
+   Buttons
+   ========================================================================== */
+
+/* Foundry gives every button inside a sheet a full-width, fixed-height box.
+   Reset it here so our components control their own geometry. */
+.blood-oracle button {
+  width: auto;
+  height: auto;
+  min-height: 0;
+  line-height: normal;
+  flex: none;
+  box-shadow: none;
+}
+
+.blood-oracle .bo-ghost {
+  font-family: inherit;
+  /* Held apart from the reading size, and matched to the header buttons. */
+  font-size: 14px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-weight: 600;
+  padding: 0 14px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+  background: transparent;
+  color: var(--bo-text-dim);
+  border: 1px solid color-mix(in srgb, var(--bo-text-dim) 32%, transparent);
+  border-radius: 2px;
+  cursor: pointer;
+  transition: all 150ms ease;
+}
+
+.blood-oracle .bo-ghost:hover {
+  border-color: currentColor;
+  background: rgba(200, 160, 96, 0.07);
+}
+
+.blood-oracle .bo-ghost.is-accent {
+  color: var(--bo-accent);
+  border-color: color-mix(in srgb, var(--bo-accent) 34%, transparent);
+}
+
+.blood-oracle .bo-ghost.is-danger {
+  color: var(--bo-accent-red);
+  border-color: color-mix(in srgb, var(--bo-accent-red) 34%, transparent);
+}
+
+.blood-oracle .bo-ghost:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.blood-oracle .bo-solid {
+  font-family: inherit;
+  font-size: 14px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-weight: 700;
+  padding: 11px 26px;
+  background: var(--bo-solid-bg);
+  color: var(--bo-solid-text);
+  border: 1px solid var(--bo-solid-border);
+  border-radius: 2px;
+  cursor: pointer;
+  box-shadow: 0 0 20px rgba(var(--bo-glow-rgb), 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  transition: all 200ms ease;
+}
+
+.blood-oracle .bo-fullrules {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  margin-top: 16px;
+}
+
+/* ==========================================================================
+   Fields
+   ========================================================================== */
+
+.blood-oracle .bo-field {
+  width: 100%;
+  padding: 8px 11px;
+  background: var(--bo-field-bg);
+  border: 1px solid var(--bo-field-border);
+  border-radius: 2px;
+  color: var(--bo-text);
+  font-family: inherit;
+  font-size: var(--bo-size-body);
+  outline: none;
+  box-sizing: border-box;
+  height: auto;
+}
+
+.blood-oracle .bo-field:focus {
+  border-color: var(--bo-edge);
+}
+
+.blood-oracle input[type='number']::-webkit-inner-spin-button,
+.blood-oracle input[type='number']::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.blood-oracle .bo-field-label {
+  display: grid;
+  gap: 4px;
+}
+
+.blood-oracle .bo-field-label > span {
+  color: var(--bo-text-dim);
+  font-size: 16px;
+}
+
+/* ==========================================================================
+   Modals — scoped to the sheet rather than the viewport, so the overlay never
+   covers other Foundry windows.
+   ========================================================================== */
+
+.blood-oracle .bo-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.78);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 36px 20px;
+  z-index: 10;
+  overflow: auto;
+}
+
+.blood-oracle .bo-modal {
+  position: relative;
+  width: min(560px, 100%);
+  padding: 24px 26px;
+  background: var(--bo-modal-bg, radial-gradient(ellipse at top, #1a0808 0%, #0a0404 100%));
+  border: 1px solid var(--bo-rule);
+  border-radius: 2px;
+  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.8);
+}
+
+.blood-oracle .bo-modal.is-wide {
+  width: min(760px, 100%);
+}
+
+/* Hairline of light across the top edge, as in the standalone app. */
+.blood-oracle .bo-modal::before {
+  content: '';
+  position: absolute;
+  top: -1px;
+  left: 20%;
+  right: 20%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--bo-edge), transparent);
+}
+
+.blood-oracle .bo-modal-close {
+  background: transparent;
+  border: none;
+  color: var(--bo-text-muted);
+  font-size: 26px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 4px;
+}
+
+.blood-oracle .bo-modal-close:hover {
+  color: var(--bo-accent-red);
+}
+
+/* ==========================================================================
+   Focus and motion
+   ========================================================================== */
+
+.blood-oracle button:focus-visible,
+.blood-oracle select:focus-visible,
+.blood-oracle input:focus-visible,
+.blood-oracle textarea:focus-visible {
+  outline: 2px solid var(--bo-edge);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .blood-oracle * {
+    transition: none !important;
+  }
+}
+
+/* ==========================================================================
+   Trackers
+   ========================================================================== */
+
+.blood-oracle .bo-tracker {
+  margin-bottom: 16px;
+}
+
+.blood-oracle .bo-tracker-label {
+  /* Reads as a subheading, like Social or Mental — same size, same gold. */
+  font-size: var(--bo-size-label);
+  font-weight: 700;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--bo-accent);
+  margin-bottom: 8px;
+}
+
+.blood-oracle .bo-tracker-boxes {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+/* ==========================================================================
+   Statistics rows — name and optional specialty left, dots right, ruled
+   ========================================================================== */
+
+.blood-oracle .bo-stat-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--bo-panel-border);
+  min-width: 0;
+}
+
+.blood-oracle .bo-stat-name {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+/* The trait name yields space before the specialty does, so a long specialty
+   never pushes itself onto a second line. */
+.blood-oracle .bo-stat-name > .bo-trait-name {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.blood-oracle .bo-specialty {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-style: italic;
+  font-size: 15px;
+  color: var(--bo-accent);
+  cursor: text;
+}
+
+.blood-oracle .bo-specialty.is-placeholder {
+  font-style: normal;
+  color: var(--bo-text-faint);
+  opacity: 0.5;
+}
+
+.blood-oracle .bo-specialty.is-placeholder:hover {
+  opacity: 0.85;
+}
+
+.blood-oracle .bo-specialty-input {
+  flex: 0 1 150px;
+  min-width: 60px;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid color-mix(in srgb, var(--bo-accent) 50%, transparent);
+  color: var(--bo-accent);
+  font-family: inherit;
+  font-size: var(--bo-size-body);
+  font-style: italic;
+  padding: 0;
+  outline: none;
+  height: auto;
+}
+
+/* ==========================================================================
+   Click-to-edit text
+   ========================================================================== */
+
+.blood-oracle .bo-editable {
+  cursor: text;
+  border-bottom: 1px solid transparent;
+}
+
+.blood-oracle .bo-editable:hover {
+  border-bottom-color: color-mix(in srgb, var(--bo-accent) 45%, transparent);
+}
+
+.blood-oracle .bo-editable.is-empty {
+  color: var(--bo-text-faint);
+  font-style: italic;
+}
+
+.blood-oracle .bo-inline-input {
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid color-mix(in srgb, var(--bo-accent) 50%, transparent);
+  color: inherit;
+  font: inherit;
+  padding: 0;
+  outline: none;
+  height: auto;
+  width: 100%;
+  max-width: 420px;
+}
+
+/* ==========================================================================
+   Rules reference picker
+   ========================================================================== */
+
+.blood-oracle .bo-catalog {
+  position: relative;
+}
+
+.blood-oracle .bo-catalog-list {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  max-height: 220px;
+  overflow: auto;
+  border: 1px solid var(--bo-field-border);
+  border-radius: 2px;
+  background: rgba(10, 3, 4, 0.96);
+}
+
+.blood-oracle .bo-catalog-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  width: 100%;
+  padding: 7px 11px;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--bo-panel-border);
+  color: var(--bo-text);
+  font-family: inherit;
+  font-size: 15px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.blood-oracle .bo-catalog-item:hover:not(:disabled) {
+  background: rgba(90, 24, 40, 0.35);
+  color: var(--bo-accent);
+}
+
+.blood-oracle .bo-catalog-item.is-owned {
+  color: var(--bo-text-faint);
+  cursor: default;
+}
+
+.blood-oracle .bo-catalog-meta {
+  color: var(--bo-text-muted);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+/* ==========================================================================
+   Pool constructor
+   ========================================================================== */
+
+.blood-oracle .bo-toggle {
+  display: flex;
+  align-items: baseline;
+  gap: 9px;
+  padding: 5px 0;
+  cursor: pointer;
+}
+
+.blood-oracle .bo-toggle.is-disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
+.blood-oracle .bo-toggle input {
+  flex: none;
+  margin: 0;
+}
+
+.blood-oracle .bo-toggle-note {
+  color: var(--bo-text-muted);
+  font-size: 14px;
+  font-style: italic;
+}
+
+.blood-oracle .bo-breakdown {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.blood-oracle .bo-breakdown li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 15px;
+  color: var(--bo-text-dim);
+}
+
+.blood-oracle .bo-breakdown .is-penalty {
+  color: var(--bo-accent-red);
+}
+
+/* ==========================================================================
+   Blood tab
+   ========================================================================== */
+
+/* Curse panels carry a coloured edge: red for the bane, violet for the
+   compulsion, matching the standalone app. */
+.blood-oracle .bo-curse {
+  border-left: 3px solid var(--bo-accent-red);
+}
+
+.blood-oracle .bo-curse.is-compulsion {
+  border-left-color: var(--bo-wp-dim);
+  background: rgba(26, 14, 34, 0.45);
+}
+
+.blood-oracle .bo-curse-clan {
+  color: var(--bo-text-muted);
+  font-style: italic;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  text-transform: none;
+}
+
+.blood-oracle .bo-pill {
+  padding: 3px 11px;
+  background: transparent;
+  border: 1px solid var(--bo-field-border);
+  border-radius: 999px;
+  color: var(--bo-text-muted);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.blood-oracle .bo-pill.is-on {
+  color: var(--bo-accent);
+  border-color: color-mix(in srgb, var(--bo-accent) 60%, transparent);
+  background: rgba(200, 160, 96, 0.1);
+}
+
+.blood-oracle .bo-potency-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.blood-oracle .bo-potency-card {
+  text-align: center;
+  padding: 12px 8px;
+  background: var(--bo-panel-bg);
+  border: 1px solid var(--bo-panel-border);
+  border-radius: 2px;
+}
+
+.blood-oracle .bo-potency-value {
+  font: 700 21px var(--bo-serif);
+  color: var(--bo-text);
+  margin-top: 4px;
+}
+
+/* ==========================================================================
+   Form grids
+   ========================================================================== */
+
+.blood-oracle .bo-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px 18px;
+  align-items: start;
+}
+
+/* ==========================================================================
+   Biography layout
+   ========================================================================== */
+
+.blood-oracle .bo-identity {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 20px;
+  align-items: start;
+}
+
+.blood-oracle .bo-pair-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  align-items: start;
+}
+
+.blood-oracle .bo-quad-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  align-items: start;
+}
+
+/* The sheet can be narrowed well below the layout these grids assume. */
+@container (max-width: 720px) {
+  .blood-oracle .bo-identity,
+  .blood-oracle .bo-pair-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .blood-oracle .bo-quad-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.blood-oracle .bo-portrait-slot {
+  width: 100%;
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  overflow: hidden;
+  background: var(--bo-field-bg);
+  border: 1px dashed var(--bo-field-border);
+  border-radius: 2px;
+  color: var(--bo-text-faint);
+  font-family: inherit;
+  font-size: 13px;
+  font-style: italic;
+  text-align: center;
+  cursor: pointer;
+}
+
+.blood-oracle .bo-portrait-slot.is-large {
+  aspect-ratio: 3 / 4;
+  font-size: 15px;
+}
+
+.blood-oracle .bo-portrait-slot:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--bo-accent) 55%, transparent);
+  color: var(--bo-accent);
+}
+
+.blood-oracle .bo-portrait-slot img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* ==========================================================================
+   Principles
+   ========================================================================== */
+
+.blood-oracle .bo-principle-number {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--bo-text-muted);
+}
+
+.blood-oracle .bo-principle-body {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr auto;
+  gap: 12px;
+  align-items: start;
+}
+
+.blood-oracle .bo-principle-bond {
+  align-self: center;
+  color: var(--bo-accent);
+  font-size: 19px;
+  opacity: 0.7;
+}
+
+@container (max-width: 720px) {
+  .blood-oracle .bo-principle-body {
+    grid-template-columns: 1fr;
+  }
+
+  .blood-oracle .bo-principle-bond {
+    display: none;
+  }
+}
+
+/* Enriched HTML from the system's own fields. */
+.blood-oracle .bo-rich p {
+  margin: 0 0 10px;
+}
+
+.blood-oracle .bo-rich p:last-child {
+  margin-bottom: 0;
+}
+
+.blood-oracle .bo-rich a {
+  color: var(--bo-accent);
+}
+
+/* ==========================================================================
+   Inventory
+   ========================================================================== */
+
+.blood-oracle .bo-equip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  color: var(--bo-text-muted);
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.blood-oracle .bo-equip input {
+  margin: 0;
+}
+
+.blood-oracle .bo-equip:has(input:checked) {
+  color: var(--bo-accent);
+}
+
+/* ==========================================================================
+   Notes and experience
+   ========================================================================== */
+
+.blood-oracle .bo-note-body {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+}
+
+.blood-oracle .bo-note-body > div:first-child {
+  flex: 1;
+  min-width: 0;
+}
+
+@container (max-width: 720px) {
+  .blood-oracle .bo-note-body {
+    flex-direction: column;
+  }
+}
+
+.blood-oracle .bo-xp-totals {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.blood-oracle .bo-xp-date {
+  color: var(--bo-text-faint);
+  font-size: 13px;
+  margin-left: 8px;
+}
+
+.blood-oracle .bo-xp-value {
+  font-weight: 700;
+  flex: none;
+  min-width: 42px;
+  text-align: right;
+}
+
+/* Notes sit two to a row, as in the standalone app. */
+.blood-oracle .bo-note-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  align-items: start;
+}
+
+@container (max-width: 720px) {
+  .blood-oracle .bo-note-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ==========================================================================
+   Help notes
+   ========================================================================== */
+
+.blood-oracle .bo-info {
+  position: relative;
+  display: inline-flex;
+  vertical-align: middle;
+  margin-left: 8px;
+}
+
+.blood-oracle .bo-info-button {
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid color-mix(in srgb, var(--bo-accent) 50%, transparent);
+  background: transparent;
+  color: var(--bo-accent);
+  font-family: var(--bo-serif);
+  font-size: 12px;
+  font-style: italic;
+  font-weight: 700;
+  line-height: 1;
+  text-transform: none;
+  letter-spacing: 0;
+  cursor: pointer;
+  flex: none;
+}
+
+.blood-oracle .bo-info-button:hover,
+.blood-oracle .bo-info-button.is-open {
+  background: rgba(200, 160, 96, 0.14);
+  border-color: var(--bo-accent);
+}
+
+.blood-oracle .bo-info-note {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: 20;
+  width: max-content;
+  max-width: 340px;
+  padding: 11px 13px;
+  background: var(--bo-modal-bg, linear-gradient(180deg, #1a0808, #0a0404));
+  border: 1px solid var(--bo-rule);
+  border-radius: 2px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7);
+  color: var(--bo-text-dim);
+  font-size: 18px;
+  font-style: normal;
+  font-weight: 400;
+  line-height: 1.45;
+  letter-spacing: 0;
+  text-transform: none;
+  white-space: normal;
+}
+
+
+/* ==========================================================================
+   Checkboxes — drawn to match the sheet rather than the browser default
+   ========================================================================== */
+
+.blood-oracle input[type='checkbox'] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 15px;
+  height: 15px;
+  flex: none;
+  position: relative;
+  border: 1px solid var(--bo-field-border);
+  border-radius: 2px;
+  background: var(--bo-box-bg);
+  cursor: pointer;
+  transition: border-color 140ms ease, box-shadow 140ms ease;
+}
+
+.blood-oracle input[type='checkbox']:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--bo-accent) 55%, transparent);
+}
+
+.blood-oracle input[type='checkbox']:checked {
+  border-color: var(--bo-accent);
+  box-shadow: 0 0 6px rgba(200, 160, 96, 0.3);
+}
+
+/* A drawn tick rather than a glyph, so it lands the same in every browser. */
+.blood-oracle input[type='checkbox']:checked::after {
+  content: '';
+  position: absolute;
+  left: 4px;
+  top: 1px;
+  width: 4px;
+  height: 8px;
+  border: solid var(--bo-accent);
+  border-width: 0 2px 2px 0;
+  transform: rotate(42deg);
+}
+
+.blood-oracle input[type='checkbox']:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+/* The note's title is the card header: an input that does not look like one
+   until it is hovered or focused. */
+.blood-oracle .bo-note-title {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid transparent;
+  padding: 0 0 3px;
+  color: var(--bo-text);
+  font-family: inherit;
+  font-size: 18px;
+  font-weight: 600;
+  outline: none;
+  height: auto;
+}
+
+.blood-oracle .bo-note-title::placeholder {
+  color: var(--bo-text-faint);
+  font-weight: 400;
+}
+
+.blood-oracle .bo-note-title:hover:not(:disabled),
+.blood-oracle .bo-note-title:focus {
+  border-bottom-color: color-mix(in srgb, var(--bo-accent) 50%, transparent);
+}
+
+/* ==========================================================================
+   Padlock
+   ========================================================================== */
+
+.blood-oracle .bo-padlock {
+  flex: none;
+  align-self: flex-start;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid var(--bo-field-border);
+  border-radius: 2px;
+  background: transparent;
+  color: var(--bo-text-muted);
+  cursor: pointer;
+  transition: color 150ms ease, border-color 150ms ease;
+}
+
+.blood-oracle .bo-padlock:hover {
+  color: var(--bo-accent);
+  border-color: color-mix(in srgb, var(--bo-accent) 55%, transparent);
+}
+
+.blood-oracle .bo-padlock.is-locked {
+  color: var(--bo-accent);
+  border-color: color-mix(in srgb, var(--bo-accent) 45%, transparent);
+  background: rgba(200, 160, 96, 0.08);
+}
+
+
+/* Placeholders read as a hint, not as content: the muted tone captions used to
+   carry, which is quieter than the browser's grey. */
+.blood-oracle .bo-field::placeholder,
+.blood-oracle textarea.bo-field::placeholder {
+  color: var(--bo-text-muted);
+  opacity: 1;
+}
+
+/* The help icon should be available, not attention-seeking. */
+.blood-oracle .bo-info-button {
+  color: var(--bo-text-muted);
+  border-color: color-mix(in srgb, var(--bo-text-muted) 60%, transparent);
+}
+
+.blood-oracle .bo-info-button:hover,
+.blood-oracle .bo-info-button.is-open {
+  color: var(--bo-accent);
+  border-color: color-mix(in srgb, var(--bo-accent) 70%, transparent);
+  background: rgba(200, 160, 96, 0.12);
+}
+
+/* ==========================================================================
+   Blood tab
+   ========================================================================== */
+
+/* The predator's name sat larger than the heading above it. */
+.blood-oracle .bo-predator-name {
+  margin: 0 0 8px;
+  font: 600 19px var(--bo-serif);
+  color: var(--bo-accent-red);
+}
+
+.blood-oracle .bo-potency-card {
+  position: relative;
+}
+
+.blood-oracle .bo-potency-info {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  z-index: 1;
+}
+
+.blood-oracle .bo-potency-info .bo-info {
+  margin-left: 0;
+}
+
+/* Humanity's accent is gold throughout, so its note should not be edged red. */
+.blood-oracle .bo-humanity-note {
+  border-left-color: var(--bo-accent);
+  background: rgba(60, 44, 20, 0.28);
+}
+
+.blood-oracle .bo-humanity-note p,
+.blood-oracle .bo-humanity-note {
+  font-style: normal;
+}
+
+.blood-oracle .bo-humanity-note .bo-label {
+  color: var(--bo-accent);
+}
+
+/* ==========================================================================
+   Header actions — one row, one height
+   ========================================================================== */
+
+.blood-oracle .bo-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+}
+
+.blood-oracle .bo-header-button {
+  height: 34px;
+  padding: 0 14px;
+  background: var(--bo-header-button-bg);
+  border: 1px solid color-mix(in srgb, var(--bo-accent) 45%, transparent);
+  border-radius: 2px;
+  color: var(--bo-accent);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: border-color 150ms ease, color 150ms ease;
+}
+
+.blood-oracle .bo-header-button:hover {
+  border-color: var(--bo-accent);
+  color: #e8cf9a;
+}
+
+.blood-oracle .bo-header-button.is-danger {
+  border-color: color-mix(in srgb, var(--bo-accent-red) 65%, transparent);
+  color: var(--bo-danger-text);
+}
+
+.blood-oracle .bo-header-button.is-danger:hover {
+  border-color: var(--bo-red-glow);
+  color: var(--bo-danger-text-hot);
+}
+
+/* Matches the buttons beside it rather than sitting a few pixels proud. */
+.blood-oracle .bo-padlock {
+  width: 34px;
+  height: 34px;
+  align-self: center;
+}
+
+/* ==========================================================================
+   Splat palettes
+
+   Each splat re-points the same tokens; components never name a colour, so
+   every tab, rule, box and glow follows without knowing a splat exists.
+   ========================================================================== */
+
+/* The vampire palette is the file's default, so its class needs no overrides —
+   it exists only so a board can name it in the picker. */
+
+/* Ghoul — dried blood: rust and brass, the vitae borrowed and going stale. */
+.blood-oracle .bo-app.bo-splat-ghoul {
+  --bo-text-dim: #c8b4a2;
+  --bo-text-muted: #8e6e56;
+  --bo-text-faint: #664a3c;
+  /* Structure rusts; the accent is the brass that has not tarnished yet. */
+  --bo-accent: #ccab45;
+  --bo-accent-red: #a83a14;
+  --bo-red-glow: #d85a22;
+  --bo-hunger: #c05a26;
+  --bo-dot-empty: #6a4030;
+
+  --bo-panel-bg: rgba(24, 12, 6, 0.5);
+  --bo-panel-border: #3e2010;
+  --bo-field-bg: rgba(24, 12, 6, 0.6);
+  --bo-field-border: #3f2416;
+
+  --bo-rule: #5e2c12;
+  --bo-edge: #8f3f18;
+  --bo-glow-rgb: 168, 58, 20;
+
+  --bo-box-bg: linear-gradient(135deg, #1c0f06, #0c0603);
+  --bo-box-border: #3a2010;
+  --bo-box-border-lit: #6a3c1c;
+  --bo-box-fill: linear-gradient(135deg, #5a2a0e, #301505);
+  --bo-card-bg: #1e1208;
+  --bo-damage-stroke: #e07030;
+  --bo-damage-stroke-soft: #f09050;
+
+  --bo-solid-bg: linear-gradient(180deg, #74300e 0%, #3e1a06 60%, #1a0c03 100%);
+  --bo-solid-border: #8f3f18;
+  --bo-solid-text: #f8e4d0;
+  --bo-header-button-bg: linear-gradient(180deg, rgba(40, 22, 10, 0.9), rgba(20, 11, 5, 0.9));
+  --bo-danger-text: #e28b5e;
+  --bo-danger-text-hot: #ffb98e;
+  --bo-modal-bg: radial-gradient(ellipse at top, #1c1006 0%, #0c0704 100%);
+
+  background: radial-gradient(ellipse at top, #241608 0%, #150d06 50%, #0a0603 100%);
+}
+
+/* Mortal — deep blue, kept dark: nothing in the blood, so nothing bright. */
+.blood-oracle .bo-app.bo-splat-mortal {
+  --bo-text-dim: #a4b0c2;
+  --bo-text-muted: #56647a;
+  --bo-text-faint: #3e4a5e;
+  /* Cold structure, warm accent — the pairing that gives the vampire sheet its
+     depth, with the temperatures swapped round. */
+  --bo-accent: #d09a4e;
+  --bo-accent-red: #4a74a8;
+  --bo-red-glow: #6a97cc;
+  --bo-hunger: #4a72a8;
+  --bo-wp: #8fa4cc;
+  --bo-dot-empty: #2c3c52;
+
+  --bo-panel-bg: rgba(6, 11, 19, 0.5);
+  --bo-panel-border: #121f33;
+  --bo-field-bg: rgba(6, 11, 19, 0.6);
+  --bo-field-border: #152539;
+
+  --bo-rule: #20425f;
+  --bo-edge: #35597f;
+  --bo-glow-rgb: 74, 116, 168;
+
+  --bo-box-bg: linear-gradient(135deg, #0a121e, #04080d);
+  --bo-box-border: #16253a;
+  --bo-box-border-lit: #2a4364;
+  --bo-box-fill: linear-gradient(135deg, #20425f, #0f2036);
+  --bo-card-bg: #0d1520;
+  --bo-damage-stroke: #6e93bd;
+  --bo-damage-stroke-soft: #8fb0d4;
+
+  --bo-solid-bg: linear-gradient(180deg, #23486a 0%, #16293f 60%, #080e18 100%);
+  --bo-solid-border: #35597f;
+  --bo-solid-text: #e6eef8;
+  --bo-header-button-bg: linear-gradient(180deg, rgba(14, 24, 40, 0.9), rgba(6, 11, 19, 0.9));
+  --bo-danger-text: #8fb0d4;
+  --bo-danger-text-hot: #b8d0ea;
+  --bo-modal-bg: radial-gradient(ellipse at top, #0c1624 0%, #05090f 100%);
+
+  background: radial-gradient(ellipse at top, #0a111b 0%, #060a11 50%, #030508 100%);
+}
+
+/* Story character — violet. Grey read as a disabled sheet rather than a
+   deliberate one, so this takes the colour of everything that is not one of
+   the named splats. */
+.blood-oracle .bo-app.bo-splat-spc {
+  --bo-text: #ece4f2;
+  --bo-text-dim: #c0b2cc;
+  --bo-text-muted: #7e6c94;
+  --bo-text-faint: #5f4f74;
+  /* Violet and champagne — the regalia pairing, and far enough from the
+     ghoul's brass that the two are not confused. */
+  --bo-accent: #d2b483;
+  --bo-accent-red: #8a56b8;
+  --bo-red-glow: #b078e0;
+  --bo-hunger: #9a5ec8;
+  --bo-wp: #c0a4e4;
+  --bo-dot-empty: #4a3660;
+
+  --bo-panel-bg: rgba(15, 9, 22, 0.5);
+  --bo-panel-border: #261a3a;
+  --bo-field-bg: rgba(15, 9, 22, 0.6);
+  --bo-field-border: #2b1d42;
+
+  --bo-rule: #4a2c70;
+  --bo-edge: #6d42a0;
+  --bo-glow-rgb: 125, 78, 168;
+
+  --bo-box-bg: linear-gradient(135deg, #130b1c, #08040d);
+  --bo-box-border: #2e1f46;
+  --bo-box-border-lit: #543a7c;
+  --bo-box-fill: linear-gradient(135deg, #4a2a72, #281444);
+  --bo-card-bg: #170f22;
+  --bo-damage-stroke: #b585e0;
+  --bo-damage-stroke-soft: #ccaaee;
+
+  --bo-solid-bg: linear-gradient(180deg, #4e2a78 0%, #2e1848 60%, #140a20 100%);
+  --bo-solid-border: #6d42a0;
+  --bo-solid-text: #efe4f8;
+  --bo-header-button-bg: linear-gradient(180deg, rgba(34, 20, 50, 0.9), rgba(16, 10, 24, 0.9));
+  --bo-danger-text: #c496e4;
+  --bo-danger-text-hot: #e0c0f4;
+  --bo-modal-bg: radial-gradient(ellipse at top, #1a1028 0%, #0a0610 100%);
+
+  background: radial-gradient(ellipse at top, #150e22 0%, #0c0715 50%, #050309 100%);
+}
+
+/* ==========================================================================
+   Scrollbars — the sheet's own, so they follow the splat instead of the
+   surrounding system's red.
+   ========================================================================== */
+
+.blood-oracle ::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.blood-oracle ::-webkit-scrollbar-track {
+  background: var(--bo-field-bg);
+}
+
+.blood-oracle ::-webkit-scrollbar-thumb {
+  background: var(--bo-rule);
+  border-radius: 5px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+.blood-oracle ::-webkit-scrollbar-thumb:hover {
+  background: var(--bo-edge);
+  background-clip: padding-box;
+}
+
+.blood-oracle {
+  scrollbar-width: thin;
+  scrollbar-color: var(--bo-rule) var(--bo-field-bg);
+}
+
+/* ==========================================================================
+   Groups — the palette follows what kind of group it is, so a coterie reads
+   as Kindred and a cell does not.
+   ========================================================================== */
+
+.blood-oracle .bo-app.bo-splat-group.is-pack {
+  --bo-text-dim: #b4c0a8;
+  --bo-text-muted: #6e7a5e;
+  --bo-text-faint: #525c46;
+  --bo-accent: #c2a44e;
+  --bo-accent-red: #4e7038;
+  --bo-red-glow: #6a9a4a;
+  --bo-dot-empty: #3e4a32;
+
+  --bo-panel-bg: rgba(10, 16, 8, 0.5);
+  --bo-panel-border: #22301a;
+  --bo-field-bg: rgba(10, 16, 8, 0.6);
+  --bo-field-border: #27361d;
+
+  --bo-rule: #354c26;
+  --bo-edge: #4e7038;
+  --bo-glow-rgb: 78, 112, 56;
+
+  --bo-box-bg: linear-gradient(135deg, #0e150a, #060a04);
+  --bo-box-border: #23301a;
+  --bo-box-border-lit: #3e5a2c;
+  --bo-box-fill: linear-gradient(135deg, #354c26, #1a2612);
+  --bo-card-bg: #101709;
+
+  --bo-solid-bg: linear-gradient(180deg, #3e5a2c 0%, #24341a 60%, #0c1208 100%);
+  --bo-solid-border: #4e7038;
+  --bo-solid-text: #e8f0dc;
+  --bo-header-button-bg: linear-gradient(180deg, rgba(22, 32, 16, 0.9), rgba(10, 16, 8, 0.9));
+  --bo-danger-text: #9ab87e;
+  --bo-danger-text-hot: #bcd8a0;
+  --bo-modal-bg: radial-gradient(ellipse at top, #101808 0%, #060a04 100%);
+
+  background: radial-gradient(ellipse at top, #141c0e 0%, #0b1108 50%, #050803 100%);
+}
+
+.blood-oracle .bo-app.bo-splat-group.is-cell {
+  --bo-text-dim: #a4b0c2;
+  --bo-text-muted: #56647a;
+  --bo-text-faint: #3e4a5e;
+  --bo-accent: #d09a4e;
+  --bo-accent-red: #4a74a8;
+  --bo-red-glow: #6a97cc;
+  --bo-dot-empty: #2c3c52;
+
+  --bo-panel-bg: rgba(6, 11, 19, 0.5);
+  --bo-panel-border: #121f33;
+  --bo-field-bg: rgba(6, 11, 19, 0.6);
+  --bo-field-border: #152539;
+
+  --bo-rule: #20425f;
+  --bo-edge: #35597f;
+  --bo-glow-rgb: 74, 116, 168;
+
+  --bo-box-bg: linear-gradient(135deg, #0a121e, #04080d);
+  --bo-box-border: #16253a;
+  --bo-box-border-lit: #2a4364;
+  --bo-box-fill: linear-gradient(135deg, #20425f, #0f2036);
+  --bo-card-bg: #0d1520;
+
+  --bo-solid-bg: linear-gradient(180deg, #23486a 0%, #16293f 60%, #080e18 100%);
+  --bo-solid-border: #35597f;
+  --bo-solid-text: #e6eef8;
+  --bo-header-button-bg: linear-gradient(180deg, rgba(14, 24, 40, 0.9), rgba(6, 11, 19, 0.9));
+  --bo-danger-text: #8fb0d4;
+  --bo-danger-text-hot: #b8d0ea;
+  --bo-modal-bg: radial-gradient(ellipse at top, #0c1624 0%, #05090f 100%);
+
+  background: radial-gradient(ellipse at top, #0a111b 0%, #060a11 50%, #030508 100%);
+}
+
+/* ==========================================================================
+   Member roster
+   ========================================================================== */
+
+.blood-oracle .bo-member-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 8px;
+}
+
+.blood-oracle .bo-member {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px;
+  background: var(--bo-panel-bg);
+  border: 1px solid var(--bo-panel-border);
+  border-radius: 2px;
+}
+
+.blood-oracle .bo-member-portrait {
+  width: 44px;
+  height: 44px;
+  flex: none;
+  padding: 0;
+  overflow: hidden;
+  background: var(--bo-field-bg);
+  border: 1px solid var(--bo-field-border);
+  border-radius: 2px;
+  cursor: pointer;
+}
+
+.blood-oracle .bo-member-portrait:hover {
+  border-color: var(--bo-accent);
+}
+
+.blood-oracle .bo-member-portrait img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.blood-oracle .bo-member-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.blood-oracle .bo-member-type {
+  color: var(--bo-text-faint);
+  font-size: 14px;
+  text-transform: capitalize;
+}
+
+/* The group-type selector sizes to its longest option instead of clipping. */
+.blood-oracle .bo-group-type {
+  /* A fixed height clipped the text once the body size went up; let the font
+     set the height and keep the row aligned by min-height instead. */
+  height: auto;
+  min-height: 34px;
+  width: auto;
+  min-width: 132px;
+  line-height: 1.35;
+  padding: 5px 30px 5px 10px;
+}
+
+.blood-oracle .bo-catalog-thumb {
+  width: 26px;
+  height: 26px;
+  object-fit: cover;
+  border: 1px solid var(--bo-field-border);
+  border-radius: 2px;
+  flex: none;
+}
+
+
+.blood-oracle .bo-error-detail {
+  margin: 12px 0;
+  padding: 10px 12px;
+  background: var(--bo-field-bg);
+  border: 1px solid var(--bo-field-border);
+  border-radius: 2px;
+  color: var(--bo-text-dim);
+  font-family: monospace;
+  font-size: 14px;
+  white-space: pre-wrap;
+}
+
+/* ==========================================================================
+   Detective board
+   ========================================================================== */
+
+.blood-oracle .bo-board {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.blood-oracle .bo-board-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+  flex: none;
+}
+
+.blood-oracle .bo-board-hint {
+  color: var(--bo-red-glow);
+  font-size: 15px;
+}
+
+.blood-oracle .bo-board-hidden {
+  color: var(--bo-text-faint);
+  font-size: 14px;
+  font-style: italic;
+}
+
+.blood-oracle .bo-board-zoom {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--bo-text-muted);
+  font-size: 14px;
+}
+
+.blood-oracle .bo-board-viewport {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid var(--bo-panel-border);
+  border-radius: 2px;
+  background:
+    radial-gradient(circle at 1px 1px, rgba(var(--bo-glow-rgb), 0.25) 1px, transparent 0) 0 0 / 36px 36px,
+    var(--bo-field-bg);
+  cursor: grab;
+}
+
+.blood-oracle .bo-board-viewport:active {
+  cursor: grabbing;
+}
+
+.blood-oracle .bo-board-plane {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: 0 0;
+}
+
+/* The line layer is huge and offset, so it must not intercept clicks. */
+.blood-oracle .bo-board-links {
+  position: absolute;
+  left: -100000px;
+  top: -100000px;
+  pointer-events: none;
+  overflow: visible;
+}
+
+.blood-oracle .bo-board-empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--bo-text-faint);
+  font-style: italic;
+  pointer-events: none;
+}
+
+.blood-oracle .bo-card {
+  position: absolute;
+  /* Opaque: a card sits over the lines and over other cards, and translucency
+     made both show through. */
+  background: var(--bo-card-bg);
+  border: 1px solid var(--bo-panel-border);
+  border-radius: 3px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.6);
+}
+
+.blood-oracle .bo-card.is-private {
+  border-color: var(--bo-edge);
+}
+
+.blood-oracle .bo-card.is-pending {
+  border-color: var(--bo-red-glow);
+  box-shadow: 0 0 14px rgba(var(--bo-glow-rgb), 0.5);
+}
+
+.blood-oracle .bo-card-head {
+  padding: 4px 8px 7px;
+  border-bottom: 1px solid var(--bo-panel-border);
+  cursor: move;
+}
+
+.blood-oracle .bo-card-title {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  padding: 0;
+  color: var(--bo-text);
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 600;
+  outline: none;
+}
+
+.blood-oracle .bo-card-title.is-static {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.blood-oracle .bo-card-tools {
+  display: flex;
+  gap: 3px;
+  padding: 6px 8px 0;
+  cursor: default;
+}
+
+.blood-oracle .bo-card-image {
+  display: block;
+  width: 100%;
+  max-height: 150px;
+  object-fit: cover;
+}
+
+.blood-oracle .bo-card-body {
+  display: block;
+  width: 100%;
+  min-height: 62px;
+  padding: 8px;
+  background: transparent;
+  border: none;
+  color: var(--bo-text);
+  font-family: inherit;
+  font-size: 15px;
+  line-height: 1.45;
+  resize: vertical;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.blood-oracle .bo-card-body.is-static {
+  white-space: pre-wrap;
+  cursor: default;
+}
+
+.blood-oracle .bo-link-label {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 4px;
+  transform: translate(-50%, -50%);
+  background: var(--bo-card-bg);
+  border: 1px solid var(--bo-panel-border);
+  border-radius: 3px;
+}
+
+.blood-oracle .bo-link-label input {
+  width: 96px;
+  background: transparent;
+  border: none;
+  padding: 0 2px;
+  color: var(--bo-text);
+  font-family: inherit;
+  font-size: 13px;
+  text-align: center;
+  outline: none;
+}
+
+
+/* Placeholder text on the board: the quiet tone, upright like everything else. */
+.blood-oracle .bo-placeholder {
+  color: var(--bo-text-muted);
+  font-style: normal;
+}
+
+.blood-oracle .bo-card-body.is-static,
+.blood-oracle .bo-card-title.is-static {
+  font-style: normal;
+}
+
+/* The eye says what the card is: red while private, gold once published. */
+.blood-oracle .bo-mini.is-private {
+  color: var(--bo-damage);
+  border-color: color-mix(in srgb, var(--bo-damage) 55%, transparent);
+}
+
+.blood-oracle .bo-mini.is-private:hover {
+  color: var(--bo-damage-soft);
+  border-color: var(--bo-damage);
+}
+
+.blood-oracle .bo-mini.is-public {
+  color: var(--bo-accent);
+  border-color: color-mix(in srgb, var(--bo-accent) 55%, transparent);
+}
+
+.blood-oracle .bo-board-palette {
+  height: auto;
+  min-height: 28px;
+  width: auto;
+  min-width: 110px;
+  padding: 3px 26px 3px 8px;
+  font-size: 14px;
+}
+
+/* ==========================================================================
+   Native dialogs — confirmations and prompts wear the sheet's colours instead
+   of Foundry's default chrome.
+   ========================================================================== */
+
+.application.bo-dialog {
+  background: var(--bo-modal-bg, radial-gradient(ellipse at top, #1a0808 0%, #0a0404 100%));
+  border: 1px solid var(--bo-rule, #5a1020);
+  color: var(--bo-text, #ede0d8);
+  font-family: var(--bo-serif, 'EB Garamond', serif);
+}
+
+.application.bo-dialog .window-header {
+  background: transparent;
+  border-bottom: 1px solid var(--bo-rule, #5a1020);
+  color: var(--bo-accent-red, #b8302e);
+  font-family: inherit;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.application.bo-dialog .window-content {
+  background: transparent;
+  color: var(--bo-text, #ede0d8);
+  font-family: inherit;
+  font-size: 17px;
+  line-height: 1.5;
+}
+
+.application.bo-dialog .window-content p {
+  margin: 0 0 10px;
+}
+
+.application.bo-dialog strong {
+  color: var(--bo-accent, #c8a060);
+}
+
+.application.bo-dialog .window-content {
+  padding: 16px 18px;
+}
+
+.application.bo-dialog .form-footer,
+.application.bo-dialog .dialog-buttons {
+  display: flex;
+  gap: 10px;
+  padding: 0 18px 16px;
+  margin: 0;
+  border: none;
+  background: transparent;
+}
+
+.application.bo-dialog button,
+.application.bo-dialog .form-footer button {
+  background: var(--bo-header-button-bg, linear-gradient(180deg, rgba(40, 14, 18, 0.9), rgba(20, 6, 8, 0.9)));
+  border: 1px solid color-mix(in srgb, var(--bo-accent, #c8a060) 45%, transparent);
+  border-radius: 2px;
+  color: var(--bo-accent, #c8a060);
+  font-family: inherit;
+  font-size: 15px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.application.bo-dialog button {
+  flex: 1;
+  height: 34px;
+  padding: 0 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  cursor: pointer;
+  transition: border-color 150ms ease, color 150ms ease;
+}
+
+.application.bo-dialog button:hover {
+  border-color: var(--bo-accent, #c8a060);
+  color: #e8cf9a;
+}
+
+/* The "no" side of a confirmation should not look like the same offer. */
+.application.bo-dialog button[data-action='no'],
+.application.bo-dialog button[data-action='cancel'] {
+  color: var(--bo-text-muted, #7a5858);
+  border-color: color-mix(in srgb, var(--bo-text-muted, #7a5858) 45%, transparent);
+}
+
+.application.bo-dialog button[data-action='no']:hover,
+.application.bo-dialog button[data-action='cancel']:hover {
+  color: var(--bo-text-dim, #b89898);
+  border-color: var(--bo-text-dim, #b89898);
+}
+
+.application.bo-dialog button i {
+  font-size: 13px;
+}
+
+.application.bo-dialog select,
+.application.bo-dialog input[type='text'] {
+  background: var(--bo-field-bg, rgba(20, 8, 10, 0.6));
+  border: 1px solid var(--bo-field-border, #3a1818);
+  color: var(--bo-text, #ede0d8);
+  font-family: inherit;
+}
