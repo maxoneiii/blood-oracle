@@ -2,7 +2,7 @@
   "id": "blood-oracle",
   "title": "Blood Oracle",
   "description": "An alternative Vampire actor sheet for the World of Darkness 5e system.",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "compatibility": {
     "minimum": "14",
     "verified": "14.367"

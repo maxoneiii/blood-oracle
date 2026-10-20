@@ -1,5 +1,6 @@
 node_modules/
 dist/
+build/
 *.log
 
 # The rules reference is near-verbatim book text. It is generated locally by
