@@ -1,7 +1,8 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import DotTracker from '../components/DotTracker.jsx'
-import { SectionTitle, LabelledValue, GhostButton, Modal } from '../components/primitives.jsx'
-import { searchAdvantages, isLoaded } from '../rules/catalog.js'
+import { SectionTitle, LabelledValue, GhostButton } from '../components/primitives.jsx'
+import { isLoaded } from '../rules/catalog.js'
+import AdvantagePicker from '../components/AdvantagePicker.jsx'
 import {
   FEATURE_TYPES,
   featuresOfType,
@@ -10,6 +11,7 @@ import {
   setDetails,
   dotsRange
 } from '../schema/advantages.js'
+import { featureOrigin } from '../schema/predator-grants.js'
 
 const SECTIONS = [
   { type: FEATURE_TYPES.merit, title: 'Merits', kind: 'merit' },
@@ -17,61 +19,11 @@ const SECTIONS = [
   { type: FEATURE_TYPES.background, title: 'Backgrounds', kind: 'merit' }
 ]
 
-/* ------------------------------------------------------------- picker */
-
-function AdvantagePicker({ kind, backgroundsOnly, onPick, onClose }) {
-  const [query, setQuery] = useState('')
-
-  const results = useMemo(() => {
-    const all = searchAdvantages(query, { kind, limit: 200 })
-    // Backgrounds sit inside the merit catalogue but get their own section.
-    return backgroundsOnly
-      ? all.filter((entry) => entry.group === 'Backgrounds')
-      : all.filter((entry) => entry.group !== 'Backgrounds')
-  }, [query, kind, backgroundsOnly])
-
-  return (
-    <Modal wide title="Choose from the reference" onClose={onClose}>
-      <label className="bo-field-label" style={{ marginBottom: '12px' }}>
-        <span>Search</span>
-        <input
-          type="text"
-          className="bo-field"
-          value={query}
-          autoFocus
-          placeholder="Name or category…"
-          onChange={(event) => setQuery(event.target.value)}
-        />
-      </label>
-
-      <ul className="bo-catalog-list" style={{ maxHeight: '340px' }}>
-        {results.map((entry) => (
-          <li key={`${entry.group}-${entry.name}`}>
-            <button type="button" className="bo-catalog-item" onClick={() => onPick(entry)}>
-              <span>
-                {entry.name}
-                <span className="bo-catalog-meta" style={{ marginLeft: '8px' }}>
-                  {entry.group}
-                </span>
-              </span>
-              <span className="bo-catalog-meta">{entry.dots}</span>
-            </button>
-          </li>
-        ))}
-        {!results.length ? (
-          <li style={{ padding: '10px 12px', color: 'var(--bo-text-faint)', fontStyle: 'italic' }}>
-            Nothing in the reference matches that.
-          </li>
-        ) : null}
-      </ul>
-    </Modal>
-  )
-}
-
 /* ------------------------------------------------------------- detail */
 
 function FeatureDetail({ item, editable, locked, onDelete }) {
   const meta = readAdvantageMeta(item)
+  const origin = item.parent ? featureOrigin(item.parent, item.id) : null
   const range = dotsRange(meta.dots)
 
   return (
@@ -82,6 +34,7 @@ function FeatureDetail({ item, editable, locked, onDelete }) {
           <p className="bo-detail-sub">
             {meta.group ? `${meta.group} · ` : ''}
             {item.system.featuretype}
+            {origin ? ` · granted by ${origin}` : ''}
           </p>
         </div>
         {editable ? (
@@ -134,7 +87,7 @@ function FeatureDetail({ item, editable, locked, onDelete }) {
 
       {meta.dots ? (
         <div className="bo-scalars">
-          <LabelledValue label="Rating in the book" value={meta.dots} />
+          <LabelledValue label="Rating in the book" value={meta.bookDots ?? meta.dots} />
         </div>
       ) : null}
     </div>
@@ -227,6 +180,14 @@ export default function MeritsFlawsTab({ actor, editable, locked }) {
                           {readAdvantageMeta(item).details ? (
                             <span className="bo-specialty">({readAdvantageMeta(item).details})</span>
                           ) : null}
+                          {featureOrigin(actor, item.id) ? (
+                            <span
+                              className="bo-origin"
+                              title={`Granted by predator type: ${featureOrigin(actor, item.id)}`}
+                            >
+                              pred
+                            </span>
+                          ) : null}
                         </div>
                         {(() => {
                           const range = dotsRange(readAdvantageMeta(item).dots)
@@ -280,7 +241,9 @@ export default function MeritsFlawsTab({ actor, editable, locked }) {
 
       {picking ? (
         <AdvantagePicker
+          actor={actor}
           kind={picking.kind}
+          sectionType={picking.type}
           backgroundsOnly={picking.backgroundsOnly}
           onPick={pickFrom}
           onClose={() => setPicking(null)}

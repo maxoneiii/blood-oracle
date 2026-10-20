@@ -63,7 +63,50 @@ function DamageBox({ state, onClick, onRightClick, size = 18 }) {
  * Health and willpower. Aggravated fills from the left, superficial sits after
  * it, which is how the standalone app ordered the track.
  */
-export function DamageTracker({ label, max, superficial, aggravated, onUpdate, disabled, onRoll }) {
+/**
+ * A small stepper for whatever moves a maximum beyond the core formula —
+ * Fortitude, merits, flaws. Shown as the bonus alone, with the formula and the
+ * resulting maximum in its tooltip, so the label row stays quiet.
+ */
+function BonusStepper({ bonus, base, max, formula, onChange, disabled, locked }) {
+  const step = (delta) => {
+    if (disabled) return
+    if (locked) return warnLocked()
+    onChange(bonus + delta)
+  }
+
+  const sign = bonus > 0 ? '+' : bonus < 0 ? '−' : '±'
+  const title =
+    `${formula} = ${base}` +
+    (bonus ? `, ${bonus > 0 ? '+' : '−'}${Math.abs(bonus)} from Fortitude, merits or flaws` : '') +
+    ` → ${max} boxes. Use − and + for anything beyond the core formula.`
+
+  return (
+    <span className="bo-bonus" title={title}>
+      <button type="button" className="bo-bonus-step" onClick={() => step(-1)} disabled={disabled}>
+        −
+      </button>
+      <span className={bonus ? 'bo-bonus-value is-set' : 'bo-bonus-value'}>
+        {sign}
+        {Math.abs(bonus)}
+      </span>
+      <button type="button" className="bo-bonus-step" onClick={() => step(1)} disabled={disabled}>
+        +
+      </button>
+    </span>
+  )
+}
+
+export function DamageTracker({
+  label,
+  max,
+  superficial,
+  aggravated,
+  onUpdate,
+  disabled,
+  onRoll,
+  bonus
+}) {
   const boxes = []
   for (let i = 0; i < max; i++) {
     if (i < aggravated) boxes.push('aggravated')
@@ -111,6 +154,7 @@ export function DamageTracker({ label, max, superficial, aggravated, onUpdate, d
             ⚀
           </button>
         ) : null}
+        {bonus ? <BonusStepper {...bonus} max={max} disabled={disabled} /> : null}
       </div>
       <div className="bo-tracker-boxes">
         {boxes.map((state, index) => (
@@ -126,10 +170,29 @@ export function DamageTracker({ label, max, superficial, aggravated, onUpdate, d
   )
 }
 
-export function HumanityTracker({ humanity, stains, onUpdate, disabled }) {
+export function HumanityTracker({ humanity, stains, onUpdate, disabled, onRemorse }) {
   return (
     <div className="bo-tracker">
-      <div className="bo-tracker-label">Humanity</div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+        <div className="bo-tracker-label" style={{ marginBottom: 0 }}>
+          Humanity
+        </div>
+        {onRemorse ? (
+          <button
+            type="button"
+            className="bo-mini"
+            title={
+              stains > 0
+                ? `Remorse — roll ${Math.max(10 - humanity - stains, 1)} dice to keep Humanity and clear ${stains} Stain${stains > 1 ? 's' : ''}`
+                : 'Remorse — no Stains to atone for'
+            }
+            onClick={onRemorse}
+            disabled={disabled}
+          >
+            ⚀
+          </button>
+        ) : null}
+      </div>
       <div className="bo-tracker-boxes">
         {Array.from({ length: 10 }, (_, i) => {
           const filled = i < humanity

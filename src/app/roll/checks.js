@@ -71,3 +71,73 @@ export async function resistFrenzy(actor) {
     quickRoll: true
   })
 }
+
+/**
+ * Remorse: rolled at the end of a session by a character carrying Stains.
+ *
+ * The pool is the Humanity boxes that are neither filled nor stained — ten,
+ * less Humanity, less Stains — with a minimum of one die. Any success keeps
+ * Humanity and clears the Stains; none costs a point of Humanity as well.
+ * This mirrors the system's own `roll-remorse.js` through the public API.
+ *
+ * One deliberate difference: the system will roll Remorse with no Stains at
+ * all, and a bad roll then takes Humanity from a character who did nothing.
+ * Remorse is for atoning for Stains, so with none there is nothing to roll.
+ */
+export function remorsePool(actor) {
+  const humanity = Number(actor.system?.humanity?.value) || 0
+  const stains = Number(actor.system?.humanity?.stains) || 0
+  return Math.max(10 - humanity - stains, 1)
+}
+
+export async function remorseCheck(actor) {
+  const humanity = Number(actor.system?.humanity?.value) || 0
+  const stains = Number(actor.system?.humanity?.stains) || 0
+
+  if (stains <= 0) {
+    ui.notifications.info(`${actor.name} has no Stains — there is nothing to feel remorse for.`)
+    return
+  }
+
+  await WOD5E.api.Roll({
+    basicDice: remorsePool(actor),
+    disableAdvancedDice: true,
+    actor,
+    data: actor.system,
+    title: game.i18n.localize('WOD5E.VTM.RollingRemorse'),
+    selectors: ['humanity'],
+    quickRoll: true,
+    callback: async (error, rollData) => {
+      if (error) {
+        console.error('Blood Oracle | Remorse roll failed', error)
+        return
+      }
+
+      const results = rollData?.terms?.[0]?.results ?? []
+      const succeeded = results.some((result) => result.success)
+
+      if (succeeded) {
+        await actor.update({ 'system.humanity.stains': 0 })
+        return
+      }
+
+      await actor.update({
+        'system.humanity.value': Math.max(humanity - 1, 0),
+        'system.humanity.stains': 0
+      })
+
+      await foundry.documents.ChatMessage.implementation.create({
+        speaker: foundry.documents.ChatMessage.implementation.getSpeaker({ actor }),
+        flags: {
+          wod5e: {
+            name: game.i18n.localize('WOD5E.VTM.RemorseFailed'),
+            img: 'systems/wod5e/assets/icons/dice/vampire/bestial-failure.png',
+            description: game.i18n.format('WOD5E.VTM.RemorseFailedDescription', {
+              actor: actor.name
+            })
+          }
+        }
+      })
+    }
+  })
+}

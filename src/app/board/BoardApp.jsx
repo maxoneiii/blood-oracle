@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react'
+import Select from '../components/Select.jsx'
 import {
   CARD_WIDTH,
   PALETTES,
@@ -306,18 +307,14 @@ export default function BoardApp({ store }) {
         </div>
 
         {editable ? (
-          <select
-            className="bo-field bo-board-palette"
-            value={readPalette(journal)}
-            title="Colour scheme for this board"
-            onChange={(event) => setPalette(journal, event.target.value)}
-          >
-            {PALETTES.map((entry) => (
-              <option key={entry.id} value={entry.id}>
-                {entry.label}
-              </option>
-            ))}
-          </select>
+          <div className="bo-board-palette">
+            <Select
+              value={readPalette(journal)}
+              title="Colour scheme for this board"
+              options={PALETTES.map((entry) => ({ value: entry.id, label: entry.label }))}
+              onChange={(value) => setPalette(journal, value)}
+            />
+          </div>
         ) : null}
       </div>
 

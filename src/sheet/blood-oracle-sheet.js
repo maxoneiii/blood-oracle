@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import App from '../app/App.jsx'
 import ErrorBoundary from '../app/components/ErrorBoundary.jsx'
 import { createStore } from '../app/store.js'
+import { syncTracks } from '../app/schema/derived.js'
 
 const { DocumentSheetV2 } = foundry.applications.api
 
@@ -95,6 +96,11 @@ export class BloodOracleSheet extends DocumentSheetV2 {
       content.replaceChildren(this.#mount)
 
       this.#hostDocument = doc
+
+      // Correct stale maximums on open, for when no Storyteller was connected
+      // to do it at load. A no-op when they already match.
+      if (this.isEditable) queueMicrotask(() => syncTracks(this.document))
+
       this.#root = createRoot(this.#mount)
       this.#root.render(
         createElement(ErrorBoundary, null, createElement(App, { store: this.#store }))

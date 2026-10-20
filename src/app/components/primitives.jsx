@@ -79,7 +79,7 @@ export function FullRulesButton({ onClick }) {
  * window among many in Foundry, and an overlay covering the whole viewport
  * would sit on top of unrelated windows.
  */
-export function Modal({ title, subtitle, wide = false, onClose, children }) {
+export function Modal({ title, subtitle, wide = false, className, onClose, children }) {
   useEffect(() => {
     const onKey = (event) => {
       if (event.key === 'Escape') {
@@ -95,7 +95,7 @@ export function Modal({ title, subtitle, wide = false, onClose, children }) {
   return (
     <div className="bo-modal-backdrop" onMouseDown={onClose}>
       <div
-        className={wide ? 'bo-modal is-wide' : 'bo-modal'}
+        className={className ?? (wide ? 'bo-modal is-wide' : 'bo-modal')}
         onMouseDown={(event) => event.stopPropagation()}
       >
         <div className="bo-row" style={{ alignItems: 'flex-start' }}>

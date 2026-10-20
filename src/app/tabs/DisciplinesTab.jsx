@@ -24,7 +24,8 @@ import {
   canEditCustomDisciplines
 } from '../schema/custom-disciplines.js'
 import { promptImport } from '../schema/import.js'
-import { rollPower, payPowerCost, powerAction } from '../roll/power.js'
+import { rollPower, payPowerCost, powerAction, opposingPoolText } from '../roll/power.js'
+import Select from '../components/Select.jsx'
 import { disciplineOverview } from '../rules/catalog.js'
 
 const ROMAN = ['', 'I', 'II', 'III', 'IV', 'V']
@@ -61,7 +62,11 @@ function PowerDetail({ actor, item, discipline, editable, onEdit, onDelete }) {
         </div>
         <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
           {action === 'roll' ? (
-            <GhostButton tone="accent" onClick={() => rollPower(actor, item)}>
+            <GhostButton
+              tone="accent"
+              title={opposingPoolText(item) ? `Contested — opposed by ${opposingPoolText(item)}` : undefined}
+              onClick={() => rollPower(actor, item)}
+            >
               Roll
             </GhostButton>
           ) : null}
@@ -292,7 +297,11 @@ function TreeNode({
                 <button
                   type="button"
                   className="bo-mini"
-                  title={`Roll ${item.name}`}
+                  title={
+                    opposingPoolText(item)
+                      ? `Roll ${item.name} — contested by ${opposingPoolText(item)}`
+                      : `Roll ${item.name}`
+                  }
                   onClick={() => rollPower(actor, item)}
                 >
                   ⚀
@@ -456,18 +465,20 @@ export default function DisciplinesTab({ actor, editable, locked }) {
           <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-end' }}>
             <label className="bo-field-label" style={{ flex: 1 }}>
               <span>Existing discipline</span>
-              <select className="bo-field" value={pick} onChange={(e) => setPick(e.target.value)}>
-                <option value="">Choose discipline…</option>
-                {all.map((d) => {
+              <Select
+                value={pick}
+                placeholder="Choose discipline…"
+                options={all.map((d) => {
                   const taken = active.some((a) => a.id === d.id)
-                  return (
-                    <option key={d.id} value={d.id} disabled={taken}>
-                      {d.label}
-                      {taken ? ' — already chosen' : d.custom ? ' (custom)' : ''}
-                    </option>
-                  )
+                  return {
+                    value: d.id,
+                    label: d.label,
+                    disabled: taken,
+                    hint: taken ? 'already chosen' : d.custom ? 'custom' : undefined
+                  }
                 })}
-              </select>
+                onChange={setPick}
+              />
             </label>
             <GhostButton tone="accent" onClick={addExisting} disabled={!pick}>
               Add

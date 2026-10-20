@@ -1,4 +1,12 @@
 import DotTracker from '../components/DotTracker.jsx'
+import { splatOf } from '../splats.js'
+import { remorseCheck } from '../roll/checks.js'
+import {
+  usesDerivedTracks,
+  baseMax,
+  readBonus,
+  setBonus
+} from '../schema/derived.js'
 import SkillRow from '../components/SkillRow.jsx'
 import { SectionTitle, GhostButton } from '../components/primitives.jsx'
 import { DamageTracker, HumanityTracker, HungerTracker } from '../components/Trackers.jsx'
@@ -33,15 +41,32 @@ function Column({ title, children }) {
   )
 }
 
-function Trackers({ actor, editable, onRouse, onRollWillpower }) {
+function Trackers({ actor, editable, locked, onRouse, onRollWillpower }) {
   const health = actor.system?.health ?? {}
   const willpower = actor.system?.willpower ?? {}
   const isVampire = actor.system?.gamesystem === 'vampire' && actor.type !== 'ghoul'
+  const splat = splatOf(actor)
+
+  // Maximums follow attributes; the stepper covers anything beyond the formula.
+  const derived = usesDerivedTracks(actor)
+  const base = baseMax(actor)
+  const bonus = readBonus(actor)
+  const bonusFor = (key, formula) =>
+    derived
+      ? {
+          bonus: bonus[key],
+          base: base[key],
+          formula,
+          locked,
+          onChange: (next) => setBonus(actor, key, next)
+        }
+      : null
 
   return (
     <div className="bo-columns">
       <DamageTracker
         label="Health"
+        bonus={bonusFor('health', 'Stamina + 3')}
         max={health.max ?? 0}
         superficial={health.superficial ?? 0}
         aggravated={health.aggravated ?? 0}
@@ -57,6 +82,7 @@ function Trackers({ actor, editable, onRouse, onRollWillpower }) {
       <DamageTracker
         label="Willpower"
         onRoll={onRollWillpower}
+        bonus={bonusFor('willpower', 'Composure + Resolve')}
         max={willpower.max ?? 0}
         superficial={willpower.superficial ?? 0}
         aggravated={willpower.aggravated ?? 0}
@@ -90,6 +116,7 @@ function Trackers({ actor, editable, onRouse, onRollWillpower }) {
         humanity={actor.system?.humanity?.value ?? 0}
         stains={actor.system?.humanity?.stains ?? 0}
         disabled={!editable}
+        onRemorse={splat.remorse ? () => remorseCheck(actor) : null}
         onUpdate={(next) =>
           actor.update(
             Object.fromEntries(
@@ -122,6 +149,7 @@ export default function StatisticsTab({
         <Trackers
           actor={actor}
           editable={editable}
+          locked={locked}
           onRouse={onRouse}
           onRollWillpower={onRollWillpower}
         />

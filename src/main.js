@@ -4,6 +4,7 @@ import { MODULE_ID } from './constants.js'
 import { loadRules, getRules, RULES_PATH_SETTING, DEFAULT_RULES_PATH } from './app/rules/catalog.js'
 import { registerStatuses, registerStatusHooks, syncStatuses } from './statuses.js'
 import { registerLockSetting } from './app/lock.js'
+import { registerTrackHooks, syncTracks } from './app/schema/derived.js'
 import './styles/blood-oracle.css'
 
 export { MODULE_ID }
@@ -52,6 +53,7 @@ Hooks.once('init', () => {
   // Token bars need nothing from us: wod5e already declares health and
   // willpower as the token attributes. Statuses are what it lacks.
   registerLockSetting()
+  registerTrackHooks()
   registerStatuses()
   registerStatusHooks()
 
@@ -78,6 +80,12 @@ Hooks.once('ready', async () => {
   // rather than only after the next edit.
   for (const actor of game.actors) {
     if (actor.isOwner) syncStatuses(actor)
+  }
+
+  // Existing characters predate derived maximums. One client corrects them —
+  // the GM's, so several connected owners do not all write the same change.
+  if (game.user.isGM) {
+    for (const actor of game.actors) syncTracks(actor)
   }
 
   await loadRules()

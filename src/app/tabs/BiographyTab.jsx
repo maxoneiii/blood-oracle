@@ -3,6 +3,9 @@ import { SectionTitle } from '../components/primitives.jsx'
 import PrinciplesEditor from '../components/PrinciplesEditor.jsx'
 import { clanNames, predatorNames, isLoaded } from '../rules/catalog.js'
 import { readSingletonName, setSingleton } from '../schema/singletons.js'
+import { changePredator, predatorTableNames } from '../schema/predator-grants.js'
+import PredatorGrantsDialog from '../components/PredatorGrantsDialog.jsx'
+import Dropdown from '../components/Select.jsx'
 import { MODULE_ID } from '../../constants.js'
 import { splatOf } from '../splats.js'
 
@@ -58,19 +61,12 @@ function Select({ label, value, options, editable, onChange, placeholder = '—'
   return (
     <label className="bo-field-label">
       <span>{label}</span>
-      <select
-        className="bo-field"
+      <Dropdown
         value={value ?? ''}
         disabled={!editable}
-        onChange={(event) => onChange(event.target.value)}
-      >
-        <option value="">{placeholder}</option>
-        {options.map((entry) => (
-          <option key={entry} value={entry}>
-            {entry}
-          </option>
-        ))}
-      </select>
+        options={[{ value: '', label: placeholder }, ...options.map((entry) => ({ value: entry, label: entry }))]}
+        onChange={onChange}
+      />
     </label>
   )
 }
@@ -78,9 +74,18 @@ function Select({ label, value, options, editable, onChange, placeholder = '—'
 /** Predator type, with a free-text escape hatch for homebrew. */
 function PredatorField({ actor, editable }) {
   const current = readSingletonName(actor, 'predatorType')
-  const known = predatorNames()
+  // The grant table ships with the module, so its predators are listed even
+  // without the rules reference installed.
+  const known = [...new Set([...predatorNames(), ...predatorTableNames()])]
   const isKnown = !current || known.includes(current)
   const [other, setOther] = useState(!isKnown)
+  const [granting, setGranting] = useState(null)
+
+  const choose = async (name) => {
+    if (String(name ?? '').trim() === current) return
+    const predator = await changePredator(actor, name)
+    if (predator) setGranting(predator)
+  }
 
   return (
     <div>
@@ -93,30 +98,26 @@ function PredatorField({ actor, editable }) {
             defaultValue={isKnown ? '' : current}
             disabled={!editable}
             placeholder="Homebrew predator type"
-            onBlur={(event) => setSingleton(actor, 'predatorType', event.target.value)}
+            onBlur={(event) => choose(event.target.value)}
           />
         ) : (
-          <select
-            className="bo-field"
+          <Dropdown
             value={isKnown ? current : ''}
             disabled={!editable}
-            onChange={(event) => {
-              if (event.target.value === OTHER) {
+            options={[
+              { value: '', label: 'Choose predator type…' },
+              ...known.map((entry) => ({ value: entry, label: entry })),
+              { value: OTHER, label: 'Other (custom)…', muted: true }
+            ]}
+            onChange={(value) => {
+              if (value === OTHER) {
                 setOther(true)
-                if (isKnown) setSingleton(actor, 'predatorType', '')
+                if (isKnown) choose('')
                 return
               }
-              setSingleton(actor, 'predatorType', event.target.value)
+              choose(value)
             }}
-          >
-            <option value="">Choose predator type…</option>
-            {known.map((entry) => (
-              <option key={entry} value={entry}>
-                {entry}
-              </option>
-            ))}
-            <option value={OTHER}>Other (custom)…</option>
-          </select>
+          />
         )}
       </label>
 
@@ -131,6 +132,9 @@ function PredatorField({ actor, editable }) {
         </button>
       ) : null}
 
+      {granting ? (
+        <PredatorGrantsDialog actor={actor} predator={granting} onClose={() => setGranting(null)} />
+      ) : null}
     </div>
   )
 }

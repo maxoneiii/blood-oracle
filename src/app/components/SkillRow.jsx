@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import DotTracker from './DotTracker.jsx'
 import { warnLocked } from '../lock.js'
+import { grantedSpecialties, readJournal } from '../schema/predator-grants.js'
 
 /**
  * wod5e stores specialties as bonus records on the skill:
@@ -15,11 +16,24 @@ export function readSpecialty(actor, skillId) {
   return bonuses.map((bonus) => bonus.source).filter(Boolean).join(', ')
 }
 
+/**
+ * Each comma-separated entry is its own bonus record. Records whose text is
+ * unchanged are kept as they were, so a specialty granted by the predator type
+ * stays a record of its own and can be taken back on its own.
+ */
 export async function writeSpecialty(actor, skillId, text) {
-  const value = String(text ?? '').trim()
-  const bonuses = value
-    ? [{ source: value, value: 1, paths: [`skills.${skillId}`], displayWhenInactive: true }]
-    : []
+  const existing = actor.system.skills?.[skillId]?.bonuses ?? []
+  const names = [...new Set(String(text ?? '').split(',').map((part) => part.trim()).filter(Boolean))]
+
+  const bonuses = names.map(
+    (name) =>
+      existing.find((bonus) => String(bonus.source ?? '').trim().toLowerCase() === name.toLowerCase()) ?? {
+        source: name,
+        value: 1,
+        paths: [`skills.${skillId}`],
+        displayWhenInactive: true
+      }
+  )
   await actor.update({ [`system.skills.${skillId}.bonuses`]: bonuses })
 }
 
@@ -30,6 +44,10 @@ export default function SkillRow({ actor, entry, editable, locked, onRoll }) {
 
   const dots = Number(foundry.utils.getProperty(actor, entry.path)) || 0
   const specialty = readSpecialty(actor, entry.id)
+  const granted = grantedSpecialties(actor, entry.id).map((text) => text.toLowerCase())
+  const journal = granted.length ? readJournal(actor) : null
+  const parts = (actor.system.skills?.[entry.id]?.bonuses ?? []).map((bonus) => bonus.source).filter(Boolean)
+  const hasGranted = parts.some((part) => granted.includes(part.toLowerCase()))
 
   useEffect(() => {
     if (editing && inputRef.current) inputRef.current.focus()
@@ -55,8 +73,9 @@ export default function SkillRow({ actor, entry, editable, locked, onRoll }) {
           {entry.label}
         </button>
 
-        {/* Specialties only exist once the skill has dots, as in the original. */}
-        {dots > 0 ? (
+        {/* Specialties only exist once the skill has dots, as in the original —
+            except one the predator type granted, which shows regardless. */}
+        {dots > 0 || hasGranted ? (
           editing ? (
             <input
               ref={inputRef}
@@ -73,7 +92,19 @@ export default function SkillRow({ actor, entry, editable, locked, onRoll }) {
             />
           ) : specialty ? (
             <span className="bo-specialty" onClick={startEditing} title={specialty}>
-              ({specialty})
+              (
+              {parts.map((part, i) => (
+                <span key={`${i}-${part}`}>
+                  {i ? ', ' : ''}
+                  {part}
+                  {granted.includes(part.toLowerCase()) ? (
+                    <span className="bo-origin" title={`Granted by predator type: ${journal?.predator}`}>
+                      pred
+                    </span>
+                  ) : null}
+                </span>
+              ))}
+              )
             </span>
           ) : editable && !locked ? (
             <span className="bo-specialty is-placeholder" onClick={startEditing}>

@@ -4,6 +4,7 @@ import { splatOf } from '../splats.js'
 import { SectionTitle, LabelledValue, GhostButton } from '../components/primitives.jsx'
 import { HumanityTracker, LinearPips } from '../components/Trackers.jsx'
 import { bloodPotencyRow } from '../roll/tables.js'
+import { remorseCheck } from '../roll/checks.js'
 import {
   clanInfo,
   predatorInfo,
@@ -12,6 +13,9 @@ import {
   resonanceOptions
 } from '../rules/catalog.js'
 import { readSingletonName, readTemperament, setResonance } from '../schema/singletons.js'
+import { readJournal, findPredator, confirmRevert, revertGrants } from '../schema/predator-grants.js'
+import Select from '../components/Select.jsx'
+import PredatorGrantsDialog from '../components/PredatorGrantsDialog.jsx'
 
 /* ------------------------------------------------------------- clan curse */
 
@@ -171,6 +175,7 @@ function HumanityBlock({ actor, editable }) {
         humanity={value}
         stains={actor.system.humanity?.stains ?? 0}
         disabled={!editable}
+        onRemorse={splatOf(actor).remorse ? () => remorseCheck(actor) : null}
         onUpdate={(next) =>
           actor.update(
             Object.fromEntries(
@@ -211,36 +216,22 @@ function ResonanceBlock({ actor, editable }) {
       <div style={{ display: 'flex', gap: '14px' }}>
         <label className="bo-field-label" style={{ flex: 1 }}>
           <span>Humour</span>
-          <select
-            className="bo-field"
+          <Select
             value={humour}
             disabled={!editable}
-            onChange={(event) => setResonance(actor, event.target.value, temperament)}
-          >
-            <option value="">—</option>
-            {humours.map((entry) => (
-              <option key={entry} value={entry}>
-                {entry}
-              </option>
-            ))}
-          </select>
+            options={[{ value: '', label: '—' }, ...humours.map((entry) => ({ value: entry, label: entry }))]}
+            onChange={(value) => setResonance(actor, value, temperament)}
+          />
         </label>
 
         <label className="bo-field-label" style={{ flex: 1 }}>
           <span>Temperament</span>
-          <select
-            className="bo-field"
+          <Select
             value={temperament}
             disabled={!editable || !humour}
-            onChange={(event) => setResonance(actor, humour, event.target.value)}
-          >
-            <option value="">—</option>
-            {temperaments.map((entry) => (
-              <option key={entry} value={entry}>
-                {entry}
-              </option>
-            ))}
-          </select>
+            options={[{ value: '', label: '—' }, ...temperaments.map((entry) => ({ value: entry, label: entry }))]}
+            onChange={(value) => setResonance(actor, humour, value)}
+          />
         </label>
       </div>
     </div>
@@ -249,10 +240,56 @@ function ResonanceBlock({ actor, editable }) {
 
 /* ---------------------------------------------------------------- predator */
 
+function PredatorGrants({ actor, editable, name }) {
+  const [granting, setGranting] = useState(null)
+  const journal = readJournal(actor)
+  const predator = findPredator(name)
+  const applied = journal && journal.predator.toLowerCase() === name.trim().toLowerCase()
+
+  const revert = async () => {
+    if (!(await confirmRevert(actor))) return
+    await revertGrants(actor)
+  }
+
+  if (!applied && !predator) return null
+
+  return (
+    <div className="bo-block">
+      <div className="bo-label">Granted at creation</div>
+      {applied ? (
+        <div className="bo-value">
+          {journal.entries.map((entry) => entry.label).join(' · ') || 'Nothing new — the character had it all.'}
+        </div>
+      ) : (
+        <div className="bo-value is-empty">Not applied to this character.</div>
+      )}
+
+      {editable ? (
+        <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
+          {applied ? (
+            <GhostButton tone="danger" onClick={revert}>
+              Take back grants
+            </GhostButton>
+          ) : (
+            <GhostButton tone="accent" onClick={() => setGranting(predator)}>
+              Apply grants
+            </GhostButton>
+          )}
+        </div>
+      ) : null}
+
+      {granting ? (
+        <PredatorGrantsDialog actor={actor} predator={granting} onClose={() => setGranting(null)} />
+      ) : null}
+    </div>
+  )
+}
+
 function PredatorBlock({ actor, editable }) {
   const [open, setOpen] = useState(false)
   const name = readSingletonName(actor, 'predatorType')
   const info = predatorInfo(name)
+  const table = findPredator(name)
 
   return (
     <div>
@@ -271,6 +308,8 @@ function PredatorBlock({ actor, editable }) {
               <div className="bo-value">{info.huntingPool}</div>
             </div>
           ) : null}
+
+          <PredatorGrants actor={actor} editable={editable} name={name} />
 
           <GhostButton onClick={() => setOpen((value) => !value)} style={{ marginTop: '14px' }}>
             {open ? 'Hide details' : 'Show details'}
@@ -309,6 +348,15 @@ function PredatorBlock({ actor, editable }) {
               ) : null}
             </>
           ) : null}
+        </div>
+      ) : name ? (
+        // No rules reference: the grant table still knows the predator.
+        <div className="bo-panel">
+          <h3 className="bo-predator-name">{name}</h3>
+          {table ? (
+            <p className="bo-detail-sub">{table.source}</p>
+          ) : null}
+          <PredatorGrants actor={actor} editable={editable} name={name} />
         </div>
       ) : (
         <p className="bo-empty" style={{ textAlign: 'left' }}>

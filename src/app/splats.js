@@ -17,7 +17,8 @@ export const SPLATS = {
     resonance: true,
     clanBane: true,
     rouse: true,
-    resistFrenzy: true
+    resistFrenzy: true,
+    remorse: true
   },
   ghoul: {
     label: 'Ghoul',
@@ -29,7 +30,9 @@ export const SPLATS = {
     clanBane: false,
     rouse: false,
     // Ghouls can frenzy, and it is one of the reasons they are dangerous.
-    resistFrenzy: true
+    resistFrenzy: true,
+    // The system gives ghouls a Remorse roll too.
+    remorse: true
   },
   // Story characters stand in for anyone the Storyteller needs. Their own type
   // is chosen on the actor (`system.spcType`), so the sheet stays neutral and

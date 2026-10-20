@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Modal, GhostButton } from '../components/primitives.jsx'
+import Select from '../components/Select.jsx'
 import { getAttributeGroups, getSkillGroups } from '../traits.js'
 import { getAllDisciplines } from '../schema/custom-disciplines.js'
 import { composePool } from './pool.js'
@@ -63,6 +64,38 @@ export default function RollPanel({ actor, editable, initialSlots, onClose }) {
 
     return [...attributes, ...skills, ...disciplines]
   }, [actor])
+
+  // What the dropdown shows. A skill with no dots can still be rolled — the
+  // Attribute alone — so it is not removed, only moved to the end and muted.
+  const dotsOf = (option) => {
+    const path =
+      option.kind === 'attribute'
+        ? `system.attributes.${option.id}.value`
+        : option.kind === 'skill'
+          ? `system.skills.${option.id}.value`
+          : `system.disciplines.${option.id}.value`
+    return Number(foundry.utils.getProperty(actor, path)) || 0
+  }
+
+  const menuOptions = (() => {
+    const trained = []
+    const untrained = []
+    for (const option of options) {
+      const dots = dotsOf(option)
+      const entry = {
+        value: option.key,
+        label: option.label,
+        group: option.group,
+        hint: dots ? '●'.repeat(Math.min(dots, 10)) : '—'
+      }
+      if (option.kind === 'skill' && !dots) {
+        untrained.push({ ...entry, group: 'Untrained skills', muted: true })
+      } else {
+        trained.push(entry)
+      }
+    }
+    return [...trained, ...untrained]
+  })()
 
   const composition = composePool(actor, {
     slots,
@@ -131,19 +164,13 @@ export default function RollPanel({ actor, editable, initialSlots, onClose }) {
         {slots.map((slot, index) => (
           <label key={index} className="bo-field-label">
             <span>Trait {index + 1}</span>
-            <select
-              className="bo-field"
+            <Select
               value={slot.kind ? `${slot.kind}:${slot.id}` : ''}
               disabled={!editable}
-              onChange={(event) => setSlot(index, event.target.value)}
-            >
-              <option value="">—</option>
-              {options.map((option) => (
-                <option key={option.key} value={option.key}>
-                  {option.group} — {option.label}
-                </option>
-              ))}
-            </select>
+              searchable
+              options={[{ value: '', label: '—' }, ...menuOptions]}
+              onChange={(key) => setSlot(index, key)}
+            />
           </label>
         ))}
 

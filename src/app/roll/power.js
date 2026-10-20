@@ -1,5 +1,6 @@
 import { bloodPotencyRow } from './tables.js'
 import { readPowerRules } from '../schema/disciplines.js'
+import { isEmptyValue } from '../components/primitives.jsx'
 
 /**
  * Work out what a power costs from its own wording.
@@ -112,13 +113,59 @@ export async function payPowerCost(actor, item) {
   if (rouseCount > 0) await rousePower(actor, item, rouseCount)
 }
 
+/** The opposing pool's wording, or '' when the power is not contested. */
+export function opposingPoolText(item) {
+  const text = String(readPowerRules(item).opposingPool ?? '').trim()
+  return isEmptyValue(text) ? '' : text
+}
+
+const MAX_OPPOSING_DICE = 20
+
+/**
+ * The opposing pool belongs to someone else, so the sheet cannot read it.
+ * The player says how many dice it comes to. Resolves null on cancel.
+ */
+async function askOpposingDice(item, text) {
+  const escape = foundry.utils.escapeHTML
+  const dice = await foundry.applications.api.DialogV2.prompt({
+    classes: ['blood-oracle', 'bo-dialog'],
+    window: { title: `Opposing roll — ${item.name}` },
+    content:
+      `<p>Opposed by <strong>${escape(text)}</strong>.</p>` +
+      '<p style="opacity:0.75">How many dice does the opposing pool come to?</p>' +
+      `<input type="number" name="dice" class="bo-opposing-dice" min="1" max="${MAX_OPPOSING_DICE}" ` +
+      'step="1" required autofocus>',
+    ok: {
+      label: 'Roll both',
+      callback: (event, button) => button.form.elements.dice.valueAsNumber
+    },
+    rejectClose: false,
+    modal: true
+  })
+
+  if (dice === null || dice === undefined || Number.isNaN(dice)) return null
+  return Math.max(1, Math.min(MAX_OPPOSING_DICE, Math.floor(dice)))
+}
+
+/** The opponent's roll: plain dice, no Hunger, no bonuses from this sheet. */
+async function rollOpposing(actor, item, text, dice) {
+  await WOD5E.api.Roll({
+    basicDice: dice,
+    disableAdvancedDice: true,
+    actor,
+    data: actor.system,
+    title: `Opposing roll — ${item.name}`,
+    flavor: text,
+    selectors: [],
+    quickRoll: true,
+    callback: (error) => {
+      if (error) console.error('Blood Oracle | Opposing roll failed', error)
+    }
+  })
+}
+
 export async function rollPower(actor, item) {
   const isVampireActor = actor.system?.gamesystem === 'vampire' && actor.type !== 'ghoul'
-
-  // Settle the cost before rolling, so a cancelled prompt cancels the whole
-  // action rather than leaving a roll in chat with no payment.
-  const rouseCount = await resolveCost(actor, item)
-  if (rouseCount === null) return
 
   const dicepool = item.system.dicepool ?? {}
   const valuePaths = []
@@ -139,6 +186,20 @@ export async function rollPower(actor, item) {
   }
 
   const isVampire = isVampireActor
+
+  // A contested power asks for the other side's dice before anything is
+  // rolled or paid, so cancelling here cancels the whole action.
+  const opposingText = opposingPoolText(item)
+  let opposingDice = null
+  if (opposingText) {
+    opposingDice = await askOpposingDice(item, opposingText)
+    if (opposingDice === null) return
+  }
+
+  // Settle the cost before rolling, so a cancelled prompt cancels the whole
+  // action rather than leaving a roll in chat with no payment.
+  const rouseCount = await resolveCost(actor, item)
+  if (rouseCount === null) return
 
   let basicDice = await WOD5E.api.getBasicDice({ valuePaths, flatMod: 0, actor })
   let advancedDice = isVampire ? await WOD5E.api.getAdvancedDice({ actor }) : 0
@@ -168,6 +229,10 @@ export async function rollPower(actor, item) {
         console.error('Blood Oracle | Power roll failed', error)
         return
       }
+      // The contest reads as one exchange in chat: the power, then straight
+      // away the resistance against it.
+      if (opposingDice !== null) await rollOpposing(actor, item, opposingText, opposingDice)
+
       // The check follows the roll so the chat log reads in the order play
       // happens: what was attempted, then what it cost.
       if (isVampire && rouseCount > 0) {

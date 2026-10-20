@@ -6,11 +6,44 @@ import { toDisciplineKey } from './disciplines.js'
  * database, unlike power prerequisites, which need it.
  */
 export function parseAmalgam(rawName) {
-  const matches = [...String(rawName ?? '').matchAll(/\(([A-Za-z][A-Za-z\s'’-]+?)\s+(\d)\)/g)]
+  // The level comes as a digit in power names ("Auspex 2") and as dots in the
+  // reference ("Auspex ●●"). Both count.
+  const matches = [...String(rawName ?? '').matchAll(/\(([A-Za-z][A-Za-z\s'’-]+?)\s+(\d|●+)\)/g)]
   return matches.map((match) => ({
     discipline: match[1].trim(),
-    level: parseInt(match[2], 10)
+    level: /\d/.test(match[2]) ? parseInt(match[2], 10) : match[2].length
   }))
+}
+
+/**
+ * Rituals and ceremonies are pseudo-disciplines in wod5e with no rating of
+ * their own: a ritual is bounded by Blood Sorcery, a ceremony by Oblivion.
+ */
+const RATED_BY = { rituals: 'sorcery', ceremonies: 'oblivion' }
+
+export function ratingKeyFor(disciplineKey) {
+  return RATED_BY[disciplineKey] ?? disciplineKey
+}
+
+export function disciplineRating(actor, disciplineKey) {
+  return Number(actor.system.disciplines?.[ratingKeyFor(disciplineKey)]?.value) || 0
+}
+
+/**
+ * Why a reference entry is out of reach for this character, or [] when it is
+ * not. Used to grey entries out in the power picker; nothing is blocked.
+ */
+export function entryShortfalls(actor, disciplineKey, entry) {
+  const reasons = []
+  const level = Number(entry.level) || 0
+  const rating = disciplineRating(actor, disciplineKey)
+  if (level && level > rating) reasons.push(`needs level ${level}, has ${rating}`)
+
+  if (entry.amalgam && !/^(no|none|n\/a|—)$/i.test(String(entry.amalgam).trim())) {
+    const check = checkAmalgam(actor, entry.amalgam)
+    if (!check.ok) reasons.push(`needs ${describeMissing(check.missing)}`)
+  }
+  return reasons
 }
 
 /**
@@ -45,7 +78,7 @@ export function checkAmalgam(actor, requirement) {
  */
 export function checkLevel(actor, item) {
   const level = Number(item.system.level) || 0
-  const rating = Number(actor.system.disciplines?.[item.system.discipline]?.value) || 0
+  const rating = disciplineRating(actor, item.system.discipline)
 
   if (!level || level <= rating) return { ok: true, level, rating }
   return { ok: false, level, rating }

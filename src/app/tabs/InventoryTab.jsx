@@ -4,7 +4,6 @@ import {
   SECTIONS,
   GEAR_PLACES,
   ARMOR_VALUES,
-  WEAPON_TYPES,
   gearPlace,
   setGearPlace,
   itemsOfSection,
@@ -12,12 +11,18 @@ import {
   setEquipped,
   armorRating,
   setArmorRating,
-  buildItemData
+  buildItemData,
+  weaponClass,
+  weaponUpdate,
+  buildWeaponData
 } from '../schema/inventory.js'
+import WeaponDialog from '../components/WeaponDialog.jsx'
+import Select from '../components/Select.jsx'
 
-function Detail({ item, editable, onDelete }) {
+function Detail({ item, editable, onDelete, onEditWeapon }) {
   const section = item.type
   const rating = armorRating(item)
+  const wclass = section === 'weapon' ? weaponClass(item) : null
 
   return (
     <div className="bo-panel">
@@ -30,11 +35,22 @@ function Detail({ item, editable, onDelete }) {
           </p>
         </div>
         {editable ? (
-          <GhostButton tone="danger" onClick={onDelete}>
-            Remove
-          </GhostButton>
+          <div style={{ display: 'flex', gap: '6px' }}>
+            {section === 'weapon' ? <GhostButton onClick={onEditWeapon}>Edit</GhostButton> : null}
+            <GhostButton tone="danger" onClick={onDelete}>
+              Remove
+            </GhostButton>
+          </div>
         ) : null}
       </div>
+
+      {section === 'weapon' ? (
+        <div className="bo-scalars" style={{ marginBottom: '14px' }}>
+          <LabelledValue label="Range" value={item.system.weaponType === 'ranged' ? 'Ranged' : 'Melee'} />
+          <LabelledValue label="Class" value={wclass?.label ?? '—'} />
+          <LabelledValue label="Damage" value={`+${Number(item.system.weaponvalue) || 0}`} />
+        </div>
+      ) : null}
 
       <div className="bo-form-grid" style={{ marginBottom: '14px' }}>
         <label className="bo-field-label">
@@ -64,75 +80,33 @@ function Detail({ item, editable, onDelete }) {
           />
         </label>
 
-        {section === 'weapon' ? (
-          <>
-            <label className="bo-field-label">
-              <span>Type</span>
-              <select
-                className="bo-field"
-                value={item.system.weaponType ?? 'melee'}
-                disabled={!editable}
-                onChange={(event) => item.update({ 'system.weaponType': event.target.value })}
-              >
-                {WEAPON_TYPES.map((type) => (
-                  <option key={type} value={type}>
-                    {type}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label className="bo-field-label">
-              <span>Damage bonus</span>
-              <select
-                className="bo-field"
-                value={item.system.weaponvalue ?? 0}
-                disabled={!editable}
-                onChange={(event) =>
-                  item.update({ 'system.weaponvalue': parseInt(event.target.value, 10) || 0 })
-                }
-              >
-                {[0, 1, 2, 3, 4].map((value) => (
-                  <option key={value} value={value}>
-                    +{value}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </>
-        ) : null}
-
         {section === 'gear' ? (
           <label className="bo-field-label">
             <span>Kept</span>
-            <select
-              className="bo-field"
+            <Select
               value={gearPlace(item)}
               disabled={!editable}
-              onChange={(event) => setGearPlace(item, event.target.value)}
-            >
-              <option value={GEAR_PLACES.carried}>On their person</option>
-              <option value={GEAR_PLACES.property}>Elsewhere</option>
-            </select>
+              options={[
+                { value: GEAR_PLACES.carried, label: 'On their person' },
+                { value: GEAR_PLACES.property, label: 'Elsewhere' }
+              ]}
+              onChange={(value) => setGearPlace(item, value)}
+            />
           </label>
         ) : null}
 
         {section === 'armor' ? (
           <label className="bo-field-label" style={{ gridColumn: '1 / -1' }}>
             <span>Rating</span>
-            <select
-              className="bo-field"
+            <Select
               value={item.getFlag('blood-oracle', 'armorRating') ?? ''}
               disabled={!editable}
-              onChange={(event) => setArmorRating(item, event.target.value)}
-            >
-              <option value="">—</option>
-              {ARMOR_VALUES.map((entry) => (
-                <option key={entry.id} value={entry.id}>
-                  {entry.label}
-                </option>
-              ))}
-            </select>
+              options={[
+                { value: '', label: '—' },
+                ...ARMOR_VALUES.map((entry) => ({ value: entry.id, label: entry.label }))
+              ]}
+              onChange={(value) => setArmorRating(item, value)}
+            />
           </label>
         ) : null}
       </div>
@@ -175,9 +149,24 @@ function Detail({ item, editable, onDelete }) {
 
 export default function InventoryTab({ actor, editable }) {
   const [selectedId, setSelectedId] = useState(null)
+  // null, { mode: 'add' } or { mode: 'edit', item }
+  const [weaponDialog, setWeaponDialog] = useState(null)
   const selected = selectedId ? actor.items.get(selectedId) : null
 
+  const addWeapon = async (values) => {
+    const [created] = await actor.createEmbeddedDocuments('Item', [buildWeaponData(values)])
+    if (created) setSelectedId(created.id)
+  }
+
+  const editWeapon = async (item, values) => {
+    await item.update(weaponUpdate(values))
+  }
+
   const add = async (section) => {
+    if (section.id === 'weapon') {
+      setWeaponDialog({ mode: 'add' })
+      return
+    }
     const [created] = await actor.createEmbeddedDocuments('Item', [buildItemData(section)])
     if (created) setSelectedId(created.id)
   }
@@ -268,7 +257,12 @@ export default function InventoryTab({ actor, editable }) {
 
         <div>
           {selected ? (
-            <Detail item={selected} editable={editable} onDelete={() => remove(selected)} />
+            <Detail
+              item={selected}
+              editable={editable}
+              onDelete={() => remove(selected)}
+              onEditWeapon={() => setWeaponDialog({ mode: 'edit', item: selected })}
+            />
           ) : (
             <div className="bo-panel">
               <p className="bo-empty" style={{ padding: '28px 0' }}>
@@ -278,6 +272,24 @@ export default function InventoryTab({ actor, editable }) {
           )}
         </div>
       </div>
+
+      {weaponDialog ? (
+        <WeaponDialog
+          initial={
+            weaponDialog.mode === 'edit'
+              ? {
+                  name: weaponDialog.item.name,
+                  range: weaponDialog.item.system.weaponType ?? 'melee',
+                  classId: weaponClass(weaponDialog.item)?.id ?? null
+                }
+              : null
+          }
+          onSubmit={(values) =>
+            weaponDialog.mode === 'edit' ? editWeapon(weaponDialog.item, values) : addWeapon(values)
+          }
+          onClose={() => setWeaponDialog(null)}
+        />
+      ) : null}
     </div>
   )
 }

@@ -18,7 +18,9 @@ export const FEATURE_TYPES = {
 
 /** The catalogue's Backgrounds group belongs to its own feature type. */
 export function featureTypeFor(entry) {
-  if (entry?.group === 'Backgrounds') return FEATURE_TYPES.background
+  // The flaw catalogue has a Backgrounds group too (Enemy, Obvious Predator…);
+  // those are flaws, and only the merit-side Backgrounds are backgrounds.
+  if (entry?.group === 'Backgrounds' && entry?.kind !== 'flaw') return FEATURE_TYPES.background
   return entry?.kind === 'flaw' ? FEATURE_TYPES.flaw : FEATURE_TYPES.merit
 }
 

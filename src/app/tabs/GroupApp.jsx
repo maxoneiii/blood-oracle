@@ -10,6 +10,7 @@ import {
 } from '../schema/inventory.js'
 import EditableText from '../components/EditableText.jsx'
 import { warnLocked } from '../lock.js'
+import Select from '../components/Select.jsx'
 
 /**
  * Groups: a coterie of Kindred, a pack of Garou, a cell of hunters.
@@ -258,32 +259,20 @@ function AdvantageForm({ item, onSave, onClose }) {
 
         <label className="bo-field-label">
           <span>Type</span>
-          <select
-            className="bo-field"
+          <Select
             value={type}
-            onChange={(event) => setType(event.target.value)}
-          >
-            {FEATURE_TYPES.map((entry) => (
-              <option key={entry.id} value={entry.id}>
-                {entry.label}
-              </option>
-            ))}
-          </select>
+            options={FEATURE_TYPES.map((entry) => ({ value: entry.id, label: entry.label }))}
+            onChange={setType}
+          />
         </label>
 
         <label className="bo-field-label">
           <span>Dots</span>
-          <select
-            className="bo-field"
-            value={points}
-            onChange={(event) => setPoints(parseInt(event.target.value, 10))}
-          >
-            {[0, 1, 2, 3, 4, 5].map((value) => (
-              <option key={value} value={value}>
-                {value}
-              </option>
-            ))}
-          </select>
+          <Select
+            value={Number(points) || 0}
+            options={[0, 1, 2, 3, 4, 5].map((value) => ({ value, label: String(value) }))}
+            onChange={setPoints}
+          />
         </label>
       </div>
 
@@ -576,20 +565,16 @@ export default function GroupApp({ actor, editable, locked, onToggleLock }) {
         </div>
         <div className="bo-header-actions">
           {editable ? (
-            <select
-              className="bo-field bo-group-type"
-              value={groupType}
-              onChange={(event) => {
-                if (locked) return warnLocked()
-                actor.update({ 'system.groupType': event.target.value })
-              }}
-            >
-              {GROUP_TYPES.map((entry) => (
-                <option key={entry.id} value={entry.id}>
-                  {entry.label}
-                </option>
-              ))}
-            </select>
+            <div className="bo-group-type">
+              <Select
+                value={groupType}
+                options={GROUP_TYPES.map((entry) => ({ value: entry.id, label: entry.label }))}
+                onChange={(value) => {
+                  if (locked) return warnLocked()
+                  actor.update({ 'system.groupType': value })
+                }}
+              />
+            </div>
           ) : null}
           {editable ? (
             <button

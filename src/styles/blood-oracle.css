@@ -2006,3 +2006,572 @@
   color: var(--bo-text, #ede0d8);
   font-family: inherit;
 }
+
+/* ==========================================================================
+   Track bonus — what moves a maximum beyond the core formula
+   ========================================================================== */
+
+.blood-oracle .bo-bonus {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
+  color: var(--bo-text-faint);
+  font-size: 13px;
+}
+
+.blood-oracle .bo-bonus-step {
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid var(--bo-field-border);
+  border-radius: 2px;
+  color: var(--bo-text-muted);
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.blood-oracle .bo-bonus-step:hover:not(:disabled) {
+  color: var(--bo-accent);
+  border-color: color-mix(in srgb, var(--bo-accent) 55%, transparent);
+}
+
+.blood-oracle .bo-bonus-value {
+  min-width: 24px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.blood-oracle .bo-bonus-value.is-set {
+  color: var(--bo-accent);
+}
+
+/* ==========================================================================
+   Predator grants — dialog and the origin mark on what it handed out
+   ========================================================================== */
+
+.blood-oracle .bo-origin {
+  display: inline-block;
+  margin-left: 5px;
+  padding: 0 4px;
+  font-family: var(--bo-serif);
+  font-style: normal;
+  font-size: 11px;
+  font-variant: small-caps;
+  letter-spacing: 0.06em;
+  line-height: 15px;
+  vertical-align: 2px;
+  color: var(--bo-text-muted);
+  border: 1px solid color-mix(in srgb, var(--bo-text-muted) 45%, transparent);
+  border-radius: 2px;
+  cursor: help;
+}
+
+.blood-oracle .bo-grant-block {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid color-mix(in srgb, var(--bo-rule) 60%, transparent);
+}
+
+.blood-oracle .bo-grant-block > .bo-label {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.blood-oracle .bo-grant-state {
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  color: var(--bo-text-faint);
+  text-transform: lowercase;
+  font-weight: 400;
+}
+
+.blood-oracle .bo-grant-state.is-done {
+  color: var(--bo-accent);
+}
+
+.blood-oracle .bo-grant-fixed {
+  margin: 6px 0 0;
+  padding-left: 18px;
+  color: var(--bo-text);
+  font-size: 17px;
+  line-height: 1.5;
+}
+
+.blood-oracle .bo-grant-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.blood-oracle .bo-grant-option {
+  font-family: inherit;
+  font-size: 16px;
+  padding: 6px 14px;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  background: transparent;
+  color: var(--bo-text-dim);
+  border: 1px solid color-mix(in srgb, var(--bo-text-dim) 32%, transparent);
+  border-radius: 2px;
+  cursor: pointer;
+}
+
+.blood-oracle .bo-grant-option:hover {
+  border-color: currentColor;
+}
+
+.blood-oracle .bo-grant-option.is-selected {
+  color: var(--bo-accent);
+  border-color: var(--bo-accent);
+  background: color-mix(in srgb, var(--bo-accent) 10%, transparent);
+}
+
+.blood-oracle .bo-grant-option.is-muted:not(.is-selected) {
+  opacity: 0.5;
+}
+
+.blood-oracle .bo-grant-note {
+  font-size: 12px;
+  font-style: italic;
+  color: var(--bo-text-muted);
+}
+
+.blood-oracle .bo-grant-text {
+  margin-top: 8px;
+  max-width: 340px;
+}
+
+.blood-oracle .bo-grant-spread-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.blood-oracle .bo-grant-spread-name {
+  min-width: 140px;
+  color: var(--bo-text);
+}
+
+.blood-oracle .bo-grant-spread-dots {
+  min-width: 48px;
+  text-align: center;
+  color: var(--bo-dot);
+  letter-spacing: 0.1em;
+}
+
+.blood-oracle .bo-grant-spread-row .bo-grant-text {
+  margin-top: 0;
+  flex: 1 1 180px;
+}
+
+.blood-oracle .bo-grant-warning {
+  margin: 10px 0 0;
+  padding: 8px 12px;
+  color: var(--bo-danger-text);
+  border-left: 2px solid var(--bo-accent-red);
+  background: color-mix(in srgb, var(--bo-accent-red) 8%, transparent);
+}
+
+.blood-oracle .bo-grant-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 22px;
+}
+
+/* Opposing pool prompt — the number field matches the dialog's text fields. */
+.application.bo-dialog input[type='number'].bo-opposing-dice {
+  width: 90px;
+  background: var(--bo-field-bg, rgba(20, 8, 10, 0.6));
+  border: 1px solid var(--bo-field-border, #3a1818);
+  color: var(--bo-text, #ede0d8);
+  font-family: inherit;
+  font-size: 18px;
+  text-align: center;
+}
+
+/* ==========================================================================
+   Merit and flaw picker — rubrics, list, preview
+   ========================================================================== */
+
+.blood-oracle .bo-modal.is-xwide {
+  width: min(940px, 100%);
+}
+
+.blood-oracle .bo-picker {
+  display: grid;
+  grid-template-columns: 170px minmax(0, 1fr) 250px;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.blood-oracle .bo-picker.is-single {
+  grid-template-columns: minmax(0, 1fr) 280px;
+}
+
+.blood-oracle .bo-picker-rubrics,
+.blood-oracle .bo-picker-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  height: 380px;
+  overflow: auto;
+  border: 1px solid var(--bo-field-border);
+  border-radius: 2px;
+  background: rgba(10, 3, 4, 0.6);
+}
+
+.blood-oracle .bo-picker-rubric {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 10px;
+  background: transparent;
+  border: none;
+  border-left: 2px solid transparent;
+  color: var(--bo-text-dim);
+  font-family: inherit;
+  font-size: 15px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.blood-oracle .bo-picker-rubric:hover {
+  color: var(--bo-text);
+  background: rgba(90, 24, 40, 0.25);
+}
+
+.blood-oracle .bo-picker-rubric.is-active {
+  color: var(--bo-accent);
+  border-left-color: var(--bo-accent);
+  background: color-mix(in srgb, var(--bo-accent) 8%, transparent);
+}
+
+.blood-oracle .bo-catalog-item.is-selected {
+  color: var(--bo-accent);
+  background: color-mix(in srgb, var(--bo-accent) 10%, transparent);
+}
+
+.blood-oracle .bo-picker-check {
+  color: var(--bo-accent);
+}
+
+.blood-oracle .bo-picker-preview {
+  height: 380px;
+  overflow: auto;
+  padding: 12px 14px;
+  border: 1px solid var(--bo-field-border);
+  border-radius: 2px;
+}
+
+.blood-oracle .bo-picker-preview .bo-prose {
+  font-size: 16px;
+  margin: 10px 0 14px;
+}
+
+.blood-oracle .bo-picker-note {
+  padding: 8px 11px;
+  margin: 0 0 10px;
+  color: var(--bo-text-faint);
+  font-size: 14px;
+  font-style: italic;
+}
+
+.blood-oracle .bo-picker-preview .bo-picker-note {
+  padding: 0;
+}
+
+.blood-oracle .bo-picker-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  color: var(--bo-text-muted);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+/* ==========================================================================
+   Weapon dialog — range, class with its damage bonus, name
+   ========================================================================== */
+
+.blood-oracle .bo-weapon-range {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.blood-oracle .bo-weapon-range .bo-grant-option {
+  flex: 1;
+  align-items: center;
+}
+
+.blood-oracle .bo-weapon-classes {
+  display: grid;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.blood-oracle .bo-weapon-class {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  width: 100%;
+  padding: 8px 12px;
+  background: transparent;
+  border: 1px solid color-mix(in srgb, var(--bo-text-dim) 26%, transparent);
+  border-radius: 2px;
+  color: var(--bo-text);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.blood-oracle .bo-weapon-class:hover {
+  border-color: color-mix(in srgb, var(--bo-text-dim) 60%, transparent);
+}
+
+.blood-oracle .bo-weapon-class.is-selected {
+  border-color: var(--bo-accent);
+  background: color-mix(in srgb, var(--bo-accent) 10%, transparent);
+}
+
+.blood-oracle .bo-weapon-bonus {
+  min-width: 36px;
+  padding: 1px 0;
+  text-align: center;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--bo-text-dim);
+  border: 1px solid color-mix(in srgb, var(--bo-text-dim) 30%, transparent);
+  border-radius: 2px;
+}
+
+.blood-oracle .bo-weapon-class.is-selected .bo-weapon-bonus {
+  color: var(--bo-accent);
+  border-color: var(--bo-accent);
+}
+
+.blood-oracle .bo-weapon-class-name {
+  display: block;
+  font-size: 16px;
+}
+
+.blood-oracle .bo-weapon-class.is-selected .bo-weapon-class-name {
+  color: var(--bo-accent);
+}
+
+.blood-oracle .bo-weapon-examples {
+  display: block;
+  font-size: 14px;
+  font-style: italic;
+  color: var(--bo-text-muted);
+}
+
+/* A power the character cannot have yet: still pickable, plainly greyed. */
+.blood-oracle .bo-catalog-item.is-unavailable {
+  color: var(--bo-text-faint);
+  font-style: italic;
+}
+
+.blood-oracle .bo-catalog-item.is-unavailable .bo-catalog-meta {
+  color: var(--bo-text-faint);
+}
+
+/* ==========================================================================
+   Dropdowns — the sheet's own, replacing the browser's grey <select> list.
+   The trigger lives in the sheet; the open list is portalled to <body> and
+   carries the sheet's palette inline, so its rules are not scoped.
+   ========================================================================== */
+
+.blood-oracle .bo-select {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  min-height: 36px;
+  height: auto;
+  margin: 0;
+  padding: 5px 10px;
+  background: var(--bo-field-bg);
+  border: 1px solid var(--bo-field-border);
+  border-radius: 2px;
+  box-shadow: none;
+  color: var(--bo-text);
+  font-family: inherit;
+  font-size: var(--bo-size-body);
+  line-height: 1.3;
+  text-align: left;
+  cursor: pointer;
+}
+
+.blood-oracle .bo-select:hover:not(:disabled),
+.blood-oracle .bo-select.is-open {
+  border-color: var(--bo-edge);
+}
+
+.blood-oracle .bo-select:focus-visible {
+  outline: 2px solid var(--bo-edge);
+  outline-offset: 2px;
+}
+
+.blood-oracle .bo-select:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.blood-oracle .bo-select-value {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.blood-oracle .bo-select-value.is-placeholder {
+  color: var(--bo-text-faint);
+}
+
+.blood-oracle .bo-select-caret {
+  flex: none;
+  color: var(--bo-accent);
+  font-size: 13px;
+  transition: transform 0.12s ease;
+}
+
+.blood-oracle .bo-select.is-open .bo-select-caret {
+  transform: rotate(180deg);
+}
+
+.bo-select-menu {
+  position: fixed;
+  z-index: 100000;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  min-height: 80px;
+  background: var(--bo-modal-bg, radial-gradient(ellipse at top, #1a0808 0%, #0a0404 100%));
+  background-color: #0c0405;
+  border: 1px solid var(--bo-edge, #8b1a2a);
+  border-radius: 2px;
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.75);
+  color: var(--bo-text, #ede0d8);
+  font-size: 16px;
+  outline: none;
+}
+
+.bo-select-menu .bo-select-search {
+  flex: none;
+  box-sizing: border-box;
+  width: auto;
+  height: 32px;
+  margin: 6px;
+  padding: 0 9px;
+  background: var(--bo-field-bg, rgba(20, 6, 8, 0.6));
+  border: 1px solid var(--bo-field-border, #3a1818);
+  border-radius: 2px;
+  box-shadow: none;
+  color: var(--bo-text, #ede0d8);
+  font-family: inherit;
+  font-size: 15px;
+  outline: none;
+}
+
+.bo-select-menu .bo-select-search:focus {
+  border-color: var(--bo-edge, #8b1a2a);
+}
+
+.bo-select-menu .bo-select-options {
+  overflow-y: auto;
+  padding-bottom: 4px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--bo-rule, #5a1020) transparent;
+}
+
+.bo-select-menu .bo-select-group {
+  padding: 8px 12px 3px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--bo-accent, #c8a060);
+}
+
+.bo-select-menu .bo-select-option {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  padding: 5px 12px 5px 20px;
+  cursor: pointer;
+  color: var(--bo-text, #ede0d8);
+}
+
+.bo-select-menu .bo-select-option.is-active {
+  background: rgba(90, 24, 40, 0.45);
+}
+
+.bo-select-menu .bo-select-option.is-current {
+  color: var(--bo-accent, #c8a060);
+}
+
+.bo-select-menu .bo-select-option.is-muted {
+  color: var(--bo-text-muted, #7a5858);
+  font-style: italic;
+}
+
+.bo-select-menu .bo-select-option.is-disabled {
+  color: var(--bo-text-faint, #5a3838);
+  cursor: default;
+}
+
+.bo-select-menu .bo-select-hint {
+  flex: none;
+  font-size: 13px;
+  font-style: normal;
+  color: var(--bo-text-faint, #5a3838);
+}
+
+.bo-select-menu .bo-select-empty {
+  padding: 8px 12px;
+  color: var(--bo-text-faint, #5a3838);
+  font-style: italic;
+}
+
+/* The group-type and board-palette pickers are now wrappers around a Select;
+   the padding they had for the native control moves to the trigger. */
+.blood-oracle div.bo-group-type,
+.blood-oracle div.bo-board-palette {
+  padding: 0;
+  height: auto;
+  min-height: 0;
+  line-height: normal;
+}
+
+.blood-oracle div.bo-group-type .bo-select {
+  min-height: 34px;
+  min-width: 132px;
+  width: auto;
+}
+
+.blood-oracle div.bo-board-palette .bo-select {
+  min-height: 28px;
+  min-width: 110px;
+  width: auto;
+  padding: 3px 8px;
+  font-size: 14px;
+}

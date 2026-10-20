@@ -107,7 +107,7 @@ export default function PowerForm({ actor, disciplineKey, item, onClose }) {
 
   return (
     <Modal wide title={item ? 'Edit power' : 'Inscribe a power'} onClose={onClose}>
-      <CatalogPicker discipline={disciplineKey} onPick={applyEntry} ownedNames={ownedNames} />
+      <CatalogPicker actor={actor} discipline={disciplineKey} onPick={applyEntry} ownedNames={ownedNames} />
 
       <div style={{ display: 'flex', gap: '12px', margin: '14px 0 13px' }}>
         <label className="bo-field-label" style={{ flex: 3 }}>

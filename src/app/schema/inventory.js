@@ -56,6 +56,63 @@ export const ARMOR_BY_ID = Object.fromEntries(ARMOR_VALUES.map((entry) => [entry
 
 export const WEAPON_TYPES = ['melee', 'ranged']
 
+/**
+ * Weapon classes from the corebook's damage table, split by range. The bonus is
+ * the book's; the examples are ours, there to show what each class means.
+ * The class lives in module flags; range and bonus are mirrored into the
+ * system's own fields, which is what rolls and other sheets read.
+ */
+export const WEAPON_CLASSES = [
+  { id: 'improvised', range: 'melee', label: 'Improvised', bonus: 0, examples: 'A chair leg, a bottle, a wooden stake' },
+  { id: 'light-blunt', range: 'melee', label: 'Light blunt', bonus: 1, examples: 'Brass knuckles, a sap' },
+  { id: 'heavy-blunt', range: 'melee', label: 'Heavy blunt', bonus: 2, examples: 'A club, a crowbar, a baseball bat' },
+  { id: 'light-blade', range: 'melee', label: 'Light piercing or slashing', bonus: 2, examples: 'A switchblade, a stiletto' },
+  { id: 'heavy-blade', range: 'melee', label: 'Heavy blade', bonus: 3, examples: 'A sword, a fire axe' },
+  { id: 'massive', range: 'melee', label: 'Massive melee', bonus: 4, examples: 'A greatsword, a length of rebar' },
+  { id: 'thrown', range: 'ranged', label: 'Improvised', bonus: 0, examples: 'A thrown brick, a bottle' },
+  { id: 'light-ranged', range: 'ranged', label: 'Light piercing', bonus: 2, examples: 'A crossbow, a throwing knife' },
+  { id: 'low-firearm', range: 'ranged', label: 'Low-caliber firearm', bonus: 2, examples: 'A .22 pistol' },
+  { id: 'medium-firearm', range: 'ranged', label: 'Medium firearm', bonus: 3, examples: 'A 9mm pistol, a hunting rifle, a shotgun at range' },
+  { id: 'high-firearm', range: 'ranged', label: 'High-caliber firearm', bonus: 4, examples: 'A magnum revolver, a shotgun at close range' }
+]
+
+export const WEAPON_CLASS_BY_ID = Object.fromEntries(WEAPON_CLASSES.map((entry) => [entry.id, entry]))
+
+/**
+ * The class recorded on a weapon. Weapons made before classes existed have
+ * none; if their range and bonus point at exactly one class, that one is read.
+ */
+export function weaponClass(item) {
+  const id = item.getFlag(MODULE_ID, 'weaponClass')
+  if (id && WEAPON_CLASS_BY_ID[id]) return WEAPON_CLASS_BY_ID[id]
+
+  const range = item.system.weaponType ?? 'melee'
+  const bonus = Number(item.system.weaponvalue) || 0
+  const matches = WEAPON_CLASSES.filter((entry) => entry.range === range && entry.bonus === bonus)
+  return matches.length === 1 ? matches[0] : null
+}
+
+/** Name, range and class in the shape both the system and the module read. */
+export function weaponUpdate({ name, classId }) {
+  const entry = WEAPON_CLASS_BY_ID[classId]
+  return {
+    name: String(name ?? '').trim(),
+    'system.weaponType': entry.range,
+    'system.weaponvalue': entry.bonus,
+    [`flags.${MODULE_ID}.weaponClass`]: entry.id
+  }
+}
+
+export function buildWeaponData({ name, classId }) {
+  const entry = WEAPON_CLASS_BY_ID[classId]
+  return {
+    name: String(name ?? '').trim(),
+    type: 'weapon',
+    system: { quantity: 1, description: '', weaponType: entry.range, weaponvalue: entry.bonus },
+    flags: { [MODULE_ID]: { weaponClass: entry.id } }
+  }
+}
+
 export function itemsOfSection(actor, section) {
   return actor.items
     .filter((item) => item.type === section.id)

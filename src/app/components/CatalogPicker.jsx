@@ -1,12 +1,13 @@
 import { useMemo, useState } from 'react'
 import { searchEntries, isLoaded } from '../rules/catalog.js'
+import { entryShortfalls } from '../schema/requirements.js'
 
 /**
  * Search box over the rules reference. Picking an entry fills the form; every
  * field stays editable afterwards, so this is a shortcut rather than a
  * constraint. Renders nothing when no reference is loaded.
  */
-export default function CatalogPicker({ discipline, onPick, ownedNames = [] }) {
+export default function CatalogPicker({ actor, discipline, onPick, ownedNames = [] }) {
   const [query, setQuery] = useState('')
   const [open, setOpen] = useState(false)
 
@@ -43,12 +44,18 @@ export default function CatalogPicker({ discipline, onPick, ownedNames = [] }) {
         <ul className="bo-catalog-list">
           {results.map((entry) => {
             const isOwned = owned.has(entry.name.toLowerCase())
+            // Out of reach is greyed, not refused: the Storyteller may allow it.
+            const shortfalls = actor && !isOwned ? entryShortfalls(actor, discipline, entry) : []
+            const classes = ['bo-catalog-item']
+            if (isOwned) classes.push('is-owned')
+            if (shortfalls.length) classes.push('is-unavailable')
             return (
               <li key={`${entry.discipline}-${entry.name}`}>
                 <button
                   type="button"
-                  className={isOwned ? 'bo-catalog-item is-owned' : 'bo-catalog-item'}
+                  className={classes.join(' ')}
                   disabled={isOwned}
+                  title={shortfalls.length ? `Out of reach: ${shortfalls.join('; ')}` : undefined}
                   onClick={() => {
                     onPick(entry)
                     setOpen(false)
@@ -60,6 +67,7 @@ export default function CatalogPicker({ discipline, onPick, ownedNames = [] }) {
                     {entry.level ? `Level ${entry.level}` : ''}
                     {entry.amalgam ? ` · ${entry.amalgam}` : ''}
                     {isOwned ? ' · already known' : ''}
+                    {shortfalls.length ? ` · ${shortfalls.join('; ')}` : ''}
                   </span>
                 </button>
               </li>
