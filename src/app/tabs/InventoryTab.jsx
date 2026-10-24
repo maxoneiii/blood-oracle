@@ -3,23 +3,24 @@ import { SectionTitle, LabelledValue, GhostButton } from '../components/primitiv
 import {
   SECTIONS,
   GEAR_PLACES,
-  ARMOR_VALUES,
   gearPlace,
   setGearPlace,
   itemsOfSection,
   isEquipped,
   setEquipped,
   armorRating,
-  setArmorRating,
+  armorUpdate,
+  buildArmorData,
   buildItemData,
   weaponClass,
   weaponUpdate,
   buildWeaponData
 } from '../schema/inventory.js'
 import WeaponDialog from '../components/WeaponDialog.jsx'
+import ArmorDialog from '../components/ArmorDialog.jsx'
 import Select from '../components/Select.jsx'
 
-function Detail({ item, editable, onDelete, onEditWeapon }) {
+function Detail({ item, editable, onDelete, onEditWeapon, onEditArmor }) {
   const section = item.type
   const rating = armorRating(item)
   const wclass = section === 'weapon' ? weaponClass(item) : null
@@ -37,6 +38,7 @@ function Detail({ item, editable, onDelete, onEditWeapon }) {
         {editable ? (
           <div style={{ display: 'flex', gap: '6px' }}>
             {section === 'weapon' ? <GhostButton onClick={onEditWeapon}>Edit</GhostButton> : null}
+            {section === 'armor' ? <GhostButton onClick={onEditArmor}>Edit</GhostButton> : null}
             <GhostButton tone="danger" onClick={onDelete}>
               Remove
             </GhostButton>
@@ -49,6 +51,18 @@ function Detail({ item, editable, onDelete, onEditWeapon }) {
           <LabelledValue label="Range" value={item.system.weaponType === 'ranged' ? 'Ranged' : 'Melee'} />
           <LabelledValue label="Class" value={wclass?.label ?? '—'} />
           <LabelledValue label="Damage" value={`+${Number(item.system.weaponvalue) || 0}`} />
+        </div>
+      ) : null}
+
+      {section === 'armor' ? (
+        <div className="bo-scalars" style={{ marginBottom: '14px' }}>
+          <LabelledValue label="Class" value={rating?.label ?? '—'} />
+          <LabelledValue label="Armour" value={rating ? String(rating.dice) : '—'} />
+          <LabelledValue
+            label="Against bullets"
+            value={rating ? String(rating.vsBullets ?? rating.dice) : '—'}
+          />
+          <LabelledValue label="Dexterity" value={rating?.dexPenalty ? `−${rating.dexPenalty} die` : '—'} />
         </div>
       ) : null}
 
@@ -94,21 +108,6 @@ function Detail({ item, editable, onDelete, onEditWeapon }) {
             />
           </label>
         ) : null}
-
-        {section === 'armor' ? (
-          <label className="bo-field-label" style={{ gridColumn: '1 / -1' }}>
-            <span>Rating</span>
-            <Select
-              value={item.getFlag('blood-oracle', 'armorRating') ?? ''}
-              disabled={!editable}
-              options={[
-                { value: '', label: '—' },
-                ...ARMOR_VALUES.map((entry) => ({ value: entry.id, label: entry.label }))
-              ]}
-              onChange={(value) => setArmorRating(item, value)}
-            />
-          </label>
-        ) : null}
       </div>
 
       <label className="bo-field-label" style={{ marginBottom: '14px' }}>
@@ -130,19 +129,6 @@ function Detail({ item, editable, onDelete, onEditWeapon }) {
         />
       </label>
 
-      {rating ? (
-        <div className="bo-scalars">
-          <LabelledValue label="Armour dice" value={String(rating.dice)} />
-          <LabelledValue
-            label="Against bullets"
-            value={rating.vsBullets !== undefined ? String(rating.vsBullets) : String(rating.dice)}
-          />
-          <LabelledValue
-            label="Dexterity penalty"
-            value={rating.dexPenalty ? `−${rating.dexPenalty}` : '—'}
-          />
-        </div>
-      ) : null}
     </div>
   )
 }
@@ -151,6 +137,8 @@ export default function InventoryTab({ actor, editable }) {
   const [selectedId, setSelectedId] = useState(null)
   // null, { mode: 'add' } or { mode: 'edit', item }
   const [weaponDialog, setWeaponDialog] = useState(null)
+  // The same, for armour.
+  const [armorDialog, setArmorDialog] = useState(null)
   const selected = selectedId ? actor.items.get(selectedId) : null
 
   const addWeapon = async (values) => {
@@ -162,9 +150,22 @@ export default function InventoryTab({ actor, editable }) {
     await item.update(weaponUpdate(values))
   }
 
+  const addArmor = async (values) => {
+    const [created] = await actor.createEmbeddedDocuments('Item', [buildArmorData(values)])
+    if (created) setSelectedId(created.id)
+  }
+
+  const editArmor = async (item, values) => {
+    await item.update(armorUpdate(values))
+  }
+
   const add = async (section) => {
     if (section.id === 'weapon') {
       setWeaponDialog({ mode: 'add' })
+      return
+    }
+    if (section.id === 'armor') {
+      setArmorDialog({ mode: 'add' })
       return
     }
     const [created] = await actor.createEmbeddedDocuments('Item', [buildItemData(section)])
@@ -229,6 +230,9 @@ export default function InventoryTab({ actor, editable }) {
                           {item.type === 'weapon' && item.system.weaponvalue ? (
                             <span className="bo-specialty">(+{item.system.weaponvalue})</span>
                           ) : null}
+                          {item.type === 'armor' && armorRating(item) ? (
+                            <span className="bo-specialty">({armorRating(item).dice})</span>
+                          ) : null}
                         </div>
 
                         {section.place === GEAR_PLACES.property ? null : (
@@ -262,6 +266,7 @@ export default function InventoryTab({ actor, editable }) {
               editable={editable}
               onDelete={() => remove(selected)}
               onEditWeapon={() => setWeaponDialog({ mode: 'edit', item: selected })}
+              onEditArmor={() => setArmorDialog({ mode: 'edit', item: selected })}
             />
           ) : (
             <div className="bo-panel">
@@ -288,6 +293,20 @@ export default function InventoryTab({ actor, editable }) {
             weaponDialog.mode === 'edit' ? editWeapon(weaponDialog.item, values) : addWeapon(values)
           }
           onClose={() => setWeaponDialog(null)}
+        />
+      ) : null}
+
+      {armorDialog ? (
+        <ArmorDialog
+          initial={
+            armorDialog.mode === 'edit'
+              ? { name: armorDialog.item.name, classId: armorRating(armorDialog.item)?.id ?? null }
+              : null
+          }
+          onSubmit={(values) =>
+            armorDialog.mode === 'edit' ? editArmor(armorDialog.item, values) : addArmor(values)
+          }
+          onClose={() => setArmorDialog(null)}
         />
       ) : null}
     </div>

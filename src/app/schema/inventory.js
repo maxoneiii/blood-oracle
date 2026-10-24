@@ -44,12 +44,30 @@ export async function setGearPlace(item, place) {
   await item.setFlag(MODULE_ID, 'place', place)
 }
 
-/** Armour ratings from the V5 Player's Guide table. */
+/**
+ * Armour classes from the V5 Player's Guide table. The ids are the ones flags
+ * already hold, so armour made before the dialog keeps its class. The rating
+ * and its drawbacks are the book's; the examples are ours.
+ */
 export const ARMOR_VALUES = [
-  { id: 'soft', label: '2 (0 against bullets) — reinforced clothing, leather', dice: 2, vsBullets: 0 },
-  { id: '2', label: '2 — ballistic cloth (aramid)', dice: 2 },
-  { id: '4', label: '4 — kevlar vest / body armour', dice: 4 },
-  { id: '6', label: '6 — full tactical loadout (−1 Dexterity pool)', dice: 6, dexPenalty: 1 }
+  {
+    id: 'soft',
+    label: 'Reinforced clothing',
+    examples: 'Heavy clothing with inserts, a leather jacket',
+    dice: 2,
+    vsBullets: 0,
+    note: '0 against bullets'
+  },
+  { id: '2', label: 'Ballistic cloth', examples: 'Clothing woven with aramid fibre', dice: 2 },
+  { id: '4', label: 'Body armour', examples: 'A kevlar vest, a flak jacket', dice: 4 },
+  {
+    id: '6',
+    label: 'Full tactical gear',
+    examples: 'A soldier’s or SWAT officer’s full kit',
+    dice: 6,
+    dexPenalty: 1,
+    note: '−1 die to Dexterity pools'
+  }
 ]
 
 export const ARMOR_BY_ID = Object.fromEntries(ARMOR_VALUES.map((entry) => [entry.id, entry]))
@@ -131,7 +149,32 @@ export async function setEquipped(item, equipped) {
 /** The armour table entry chosen for this item, if any. */
 export function armorRating(item) {
   const id = item.getFlag(MODULE_ID, 'armorRating')
-  return id ? ARMOR_BY_ID[id] ?? null : null
+  if (id && ARMOR_BY_ID[id]) return ARMOR_BY_ID[id]
+
+  // Armour made without a class: if its rating points at exactly one, read it.
+  const dice = Number(item.system?.armorvalue) || 0
+  const matches = ARMOR_VALUES.filter((entry) => entry.dice === dice)
+  return !id && matches.length === 1 ? matches[0] : null
+}
+
+/** Name and class in the shape both the system and the module read. */
+export function armorUpdate({ name, classId }) {
+  const entry = ARMOR_BY_ID[classId]
+  return {
+    name: String(name ?? '').trim(),
+    'system.armorvalue': entry.dice,
+    [`flags.${MODULE_ID}.armorRating`]: entry.id
+  }
+}
+
+export function buildArmorData({ name, classId }) {
+  const entry = ARMOR_BY_ID[classId]
+  return {
+    name: String(name ?? '').trim(),
+    type: 'armor',
+    system: { quantity: 1, description: '', armorvalue: entry.dice },
+    flags: { [MODULE_ID]: { armorRating: entry.id } }
+  }
 }
 
 export async function setArmorRating(item, id) {

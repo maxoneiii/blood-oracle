@@ -1,74 +1,47 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import DotTracker from './DotTracker.jsx'
+import SpecialtyPopover, { SpecialtyTooltip } from './SpecialtyPopover.jsx'
 import { warnLocked } from '../lock.js'
-import { grantedSpecialties, readJournal } from '../schema/predator-grants.js'
+import { readSpecialties, grantingPredator } from '../schema/specialties.js'
 
 /**
- * wod5e stores specialties as bonus records on the skill:
- *   { source: 'grappling', value: 1, paths: ['skills.brawl'] }
+ * One skill: name, specialties, dots.
  *
- * The standalone app kept a single free-text specialty per skill. We read all
- * bonus sources for display and write back a single record, which keeps the
- * inline editing of the original while staying legible to the native sheet.
+ * A skill can carry several specialties but the row has one line, so it shows
+ * the first and a "+N" chip for the rest. Hovering lists them all; clicking
+ * opens a popover by the row to rename, remove and add them.
  */
-export function readSpecialty(actor, skillId) {
-  const bonuses = actor.system.skills?.[skillId]?.bonuses ?? []
-  return bonuses.map((bonus) => bonus.source).filter(Boolean).join(', ')
-}
-
-/**
- * Each comma-separated entry is its own bonus record. Records whose text is
- * unchanged are kept as they were, so a specialty granted by the predator type
- * stays a record of its own and can be taken back on its own.
- */
-export async function writeSpecialty(actor, skillId, text) {
-  const existing = actor.system.skills?.[skillId]?.bonuses ?? []
-  const names = [...new Set(String(text ?? '').split(',').map((part) => part.trim()).filter(Boolean))]
-
-  const bonuses = names.map(
-    (name) =>
-      existing.find((bonus) => String(bonus.source ?? '').trim().toLowerCase() === name.toLowerCase()) ?? {
-        source: name,
-        value: 1,
-        paths: [`skills.${skillId}`],
-        displayWhenInactive: true
-      }
-  )
-  await actor.update({ [`system.skills.${skillId}.bonuses`]: bonuses })
-}
-
 export default function SkillRow({ actor, entry, editable, locked, onRoll }) {
-  const [editing, setEditing] = useState(false)
-  const [draft, setDraft] = useState('')
-  const inputRef = useRef(null)
+  // null, or { focusAdd }
+  const [popover, setPopover] = useState(null)
+  const [hovered, setHovered] = useState(false)
+  const anchorRef = useRef(null)
 
   const dots = Number(foundry.utils.getProperty(actor, entry.path)) || 0
-  const specialty = readSpecialty(actor, entry.id)
-  const granted = grantedSpecialties(actor, entry.id).map((text) => text.toLowerCase())
-  const journal = granted.length ? readJournal(actor) : null
-  const parts = (actor.system.skills?.[entry.id]?.bonuses ?? []).map((bonus) => bonus.source).filter(Boolean)
-  const hasGranted = parts.some((part) => granted.includes(part.toLowerCase()))
+  const specialties = readSpecialties(actor, entry.id)
+  const hasGranted = specialties.some((item) => item.granted)
+  const predator = hasGranted ? grantingPredator(actor) : null
+  // A specialty is part of the character's rating, so the padlock covers it.
+  const canEdit = editable && !locked
 
-  useEffect(() => {
-    if (editing && inputRef.current) inputRef.current.focus()
-  }, [editing])
+  const closePopover = useCallback(() => setPopover(null), [])
 
-  const startEditing = () => {
+  const open = (focusAdd) => {
+    setHovered(false)
+    setPopover({ focusAdd })
+  }
+
+  const openForAdding = () => {
     if (!editable) return
-    // A specialty is part of the character's rating, so the padlock covers it.
     if (locked) return warnLocked()
-    setDraft(specialty)
-    setEditing(true)
+    open(true)
   }
 
-  const commit = async () => {
-    setEditing(false)
-    if (draft.trim() !== specialty) await writeSpecialty(actor, entry.id, draft)
-  }
+  const [first, ...rest] = specialties
 
   return (
     <div className="bo-stat-row">
-      <div className="bo-stat-name">
+      <div className="bo-stat-name" ref={anchorRef}>
         <button type="button" className="bo-trait-name" onClick={() => onRoll(entry)} title={entry.label}>
           {entry.label}
         </button>
@@ -76,38 +49,21 @@ export default function SkillRow({ actor, entry, editable, locked, onRoll }) {
         {/* Specialties only exist once the skill has dots, as in the original —
             except one the predator type granted, which shows regardless. */}
         {dots > 0 || hasGranted ? (
-          editing ? (
-            <input
-              ref={inputRef}
-              type="text"
-              className="bo-specialty-input"
-              value={draft}
-              placeholder="grappling, dirty fighting…"
-              onChange={(event) => setDraft(event.target.value)}
-              onBlur={commit}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter') commit()
-                if (event.key === 'Escape') setEditing(false)
-              }}
-            />
-          ) : specialty ? (
-            <span className="bo-specialty" onClick={startEditing} title={specialty}>
-              (
-              {parts.map((part, i) => (
-                <span key={`${i}-${part}`}>
-                  {i ? ', ' : ''}
-                  {part}
-                  {granted.includes(part.toLowerCase()) ? (
-                    <span className="bo-origin" title={`Granted by predator type: ${journal?.predator}`}>
-                      pred
-                    </span>
-                  ) : null}
-                </span>
-              ))}
-              )
+          first ? (
+            <span
+              className="bo-spec-zone"
+              onClick={() => (popover ? closePopover() : open(false))}
+              onMouseEnter={() => setHovered(true)}
+              onMouseLeave={() => setHovered(false)}
+            >
+              <span className="bo-specialty">
+                ({first.text}
+                {first.granted ? <span className="bo-origin">pred</span> : null})
+              </span>
+              {rest.length ? <span className="bo-spec-more">+{rest.length}</span> : null}
             </span>
-          ) : editable && !locked ? (
-            <span className="bo-specialty is-placeholder" onClick={startEditing}>
+          ) : canEdit ? (
+            <span className="bo-specialty is-placeholder" onClick={openForAdding}>
               + add specialty
             </span>
           ) : null
@@ -120,6 +76,24 @@ export default function SkillRow({ actor, entry, editable, locked, onRoll }) {
         locked={locked}
         onChange={(next) => actor.update({ [entry.path]: next })}
       />
+
+      {hovered && !popover ? (
+        <SpecialtyTooltip anchor={anchorRef.current} entries={specialties} predator={predator} />
+      ) : null}
+
+      {popover ? (
+        <SpecialtyPopover
+          anchor={anchorRef.current}
+          actor={actor}
+          skillId={entry.id}
+          skillLabel={entry.label}
+          entries={specialties}
+          predator={predator}
+          canEdit={canEdit}
+          focusAdd={popover.focusAdd}
+          onClose={closePopover}
+        />
+      ) : null}
     </div>
   )
 }

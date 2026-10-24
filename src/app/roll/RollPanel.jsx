@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Modal, GhostButton } from '../components/primitives.jsx'
 import Select from '../components/Select.jsx'
 import { getAttributeGroups, getSkillGroups } from '../traits.js'
@@ -6,6 +6,8 @@ import { getAllDisciplines } from '../schema/custom-disciplines.js'
 import { composePool } from './pool.js'
 import { getHungerDice, splitPool } from './bridge.js'
 import { rouseCheck } from './checks.js'
+import OddsPopover from './OddsPopover.jsx'
+import Stepper from '../components/Stepper.jsx'
 
 const EMPTY = { kind: null, id: null, label: '' }
 const SLOT_COUNT = 3
@@ -20,7 +22,11 @@ export default function RollPanel({ actor, editable, initialSlots, onClose }) {
   const [modifier, setModifier] = useState(0)
   const [difficulty, setDifficulty] = useState(0)
   const [bloodSurge, setBloodSurge] = useState(false)
-  const [useSpecialty, setUseSpecialty] = useState(false)
+  // '' is "no specialty"; otherwise the key of the one applied.
+  const [specialtyKey, setSpecialtyKey] = useState('')
+  const [oddsOpen, setOddsOpen] = useState(false)
+  const oddsRef = useRef(null)
+  const closeOdds = useCallback(() => setOddsOpen(false), [])
   const [useResonance, setUseResonance] = useState(false)
   const [useWeaponDamage, setUseWeaponDamage] = useState(false)
   const [rolling, setRolling] = useState(false)
@@ -100,23 +106,32 @@ export default function RollPanel({ actor, editable, initialSlots, onClose }) {
   const composition = composePool(actor, {
     slots,
     modifier,
-    options: { bloodSurge, useSpecialty, useResonance, useWeaponDamage }
+    options: { bloodSurge, specialty: specialtyKey, useResonance, useWeaponDamage }
   })
 
   // Toggles switch themselves off when their precondition disappears, so the
   // displayed pool never includes a bonus that no longer applies.
   useEffect(() => {
-    if (!composition.specialtyAvailable && useSpecialty) setUseSpecialty(false)
+    if (specialtyKey && !composition.chosenSpecialty) setSpecialtyKey('')
     if (!composition.resonanceAvailable && useResonance) setUseResonance(false)
     if (!composition.weaponBonusAvailable && useWeaponDamage) setUseWeaponDamage(false)
   }, [
-    composition.specialtyAvailable,
+    composition.chosenSpecialty,
     composition.resonanceAvailable,
     composition.weaponBonusAvailable,
-    useSpecialty,
+    specialtyKey,
     useResonance,
     useWeaponDamage
   ])
+
+  // A different skill means a different list: start again from "None".
+  const skillSignature = slots
+    .filter((slot) => slot?.kind === 'skill' && slot.id)
+    .map((slot) => slot.id)
+    .join('|')
+  useEffect(() => {
+    setSpecialtyKey('')
+  }, [skillSignature])
 
   const hunger = getHungerDice(actor)
   const { basicDice, advancedDice } = splitPool(composition.total, hunger)
@@ -158,6 +173,9 @@ export default function RollPanel({ actor, editable, initialSlots, onClose }) {
     }
   }
 
+  const chosenKey = composition.chosenSpecialty?.key ?? ''
+  const manySkills = composition.specialtyChoices.length > 1
+
   return (
     <Modal title="Build a pool" onClose={onClose}>
       <div style={{ display: 'grid', gap: '11px' }}>
@@ -173,34 +191,10 @@ export default function RollPanel({ actor, editable, initialSlots, onClose }) {
             />
           </label>
         ))}
-
-        <div style={{ display: 'flex', gap: '12px' }}>
-          <label className="bo-field-label" style={{ flex: 1 }}>
-            <span>Modifier</span>
-            <input
-              type="number"
-              className="bo-field"
-              value={modifier}
-              min={-5}
-              max={5}
-              onChange={(event) => setModifier(parseInt(event.target.value, 10) || 0)}
-            />
-          </label>
-          <label className="bo-field-label" style={{ flex: 1 }}>
-            <span>Difficulty</span>
-            <input
-              type="number"
-              className="bo-field"
-              value={difficulty}
-              min={0}
-              onChange={(event) => setDifficulty(parseInt(event.target.value, 10) || 0)}
-            />
-          </label>
-        </div>
       </div>
 
       <div className="bo-block">
-        <label className="bo-toggle">
+        <label className={bloodSurge ? 'bo-toggle is-surge is-on' : 'bo-toggle is-surge'}>
           <input
             type="checkbox"
             checked={bloodSurge}
@@ -214,20 +208,49 @@ export default function RollPanel({ actor, editable, initialSlots, onClose }) {
           </span>
         </label>
 
-        <label className={composition.specialtyAvailable ? 'bo-toggle' : 'bo-toggle is-disabled'}>
-          <input
-            type="checkbox"
-            checked={useSpecialty}
-            disabled={!composition.specialtyAvailable}
-            onChange={(event) => setUseSpecialty(event.target.checked)}
-          />
+        {/* One specialty per roll, picked from chips: all of them in sight, so a
+            player sees there are several, without a list breaking the block. */}
+        <div className={composition.specialtyAvailable ? 'bo-toggle bo-spec-row' : 'bo-toggle bo-spec-row is-disabled'}>
+          <span className="bo-toggle-spacer" aria-hidden="true" />
           <span>Specialty</span>
-          <span className="bo-toggle-note">
-            {composition.specialtyAvailable
-              ? `+1 · ${composition.specialtyText}`
-              : 'no specialty on the chosen skill'}
-          </span>
-        </label>
+          {composition.specialtyAvailable ? (
+            <div className="bo-spec-chips" role="radiogroup" aria-label="Specialty">
+              <button
+                type="button"
+                role="radio"
+                aria-checked={!chosenKey}
+                className={chosenKey ? 'bo-chip is-none' : 'bo-chip is-none is-selected'}
+                onClick={() => setSpecialtyKey('')}
+              >
+                None
+              </button>
+              {composition.specialtyChoices.map((group) => [
+                manySkills ? (
+                  <span key={`${group.skillId}-label`} className="bo-chip-group">
+                    {group.skillLabel}
+                  </span>
+                ) : null,
+                ...group.entries.map((entry) => (
+                  <button
+                    key={entry.key}
+                    type="button"
+                    role="radio"
+                    aria-checked={chosenKey === entry.key}
+                    className={chosenKey === entry.key ? 'bo-chip is-selected' : 'bo-chip'}
+                    title={entry.granted ? 'Granted by the predator type' : undefined}
+                    onClick={() => setSpecialtyKey(entry.key)}
+                  >
+                    {entry.text}
+                    {entry.granted ? <span className="bo-chip-origin">pred</span> : null}
+                  </button>
+                ))
+              ])}
+              {chosenKey ? <span className="bo-toggle-note">+1 die</span> : null}
+            </div>
+          ) : (
+            <span className="bo-toggle-note">no specialty on the chosen skills</span>
+          )}
+        </div>
 
         <label
           className={composition.weaponBonusAvailable ? 'bo-toggle' : 'bo-toggle is-disabled'}
@@ -278,45 +301,68 @@ export default function RollPanel({ actor, editable, initialSlots, onClose }) {
           ))}
           {!composition.parts.length ? (
             <li>
-              <span style={{ color: 'var(--bo-text-faint)', fontStyle: 'italic' }}>
-                Nothing selected yet.
-              </span>
+              <span className="bo-roll-note is-faint">Nothing selected yet.</span>
             </li>
           ) : null}
         </ul>
 
-        <p className="bo-prose" style={{ marginTop: '10px' }}>
-          Rolling <strong>{basicDice}</strong> normal and{' '}
-          <strong style={{ color: 'var(--bo-red-glow)' }}>{advancedDice}</strong> hunger.
-        </p>
+        <div className="bo-roll-summary">
+          <p className="bo-prose">
+            Rolling <strong>{basicDice}</strong> normal and{' '}
+            <strong style={{ color: 'var(--bo-red-glow)' }}>{advancedDice}</strong> hunger.
+          </p>
+          <button
+            ref={oddsRef}
+            type="button"
+            className={oddsOpen ? 'bo-ghost is-accent is-open' : 'bo-ghost'}
+            disabled={!composition.canRoll}
+            onClick={() => setOddsOpen((open) => !open)}
+            title="Chances for this pool"
+          >
+            Odds
+          </button>
+        </div>
         {composition.weaponBonus ? (
-          <p style={{ color: 'var(--bo-text-dim)', fontSize: '14px', margin: '4px 0 0' }}>
+          <p className="bo-roll-note">
             Plus {composition.weaponBonus} damage on a win — added to successes, not rolled.
           </p>
         ) : null}
         {composition.unequippedWarning ? (
-          <p style={{ color: 'var(--bo-accent)', fontSize: '14px', margin: '4px 0 0' }}>
-            A weapon of that kind is carried but not equipped.
-          </p>
+          <p className="bo-roll-note is-accent">A weapon of that kind is carried but not equipped.</p>
         ) : null}
         {composition.flooredToOne ? (
-          <p style={{ color: 'var(--bo-accent-red)', fontSize: '14px', margin: '4px 0 0' }}>
+          <p className="bo-roll-note is-red">
             Penalties would take this below one die; the pool is held at one.
           </p>
         ) : null}
       </div>
 
-      <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '20px' }}>
-        <GhostButton onClick={onClose}>Cancel</GhostButton>
-        <button
-          type="button"
-          className="bo-solid"
-          onClick={doRoll}
-          disabled={rolling || !composition.canRoll}
-        >
-          {rolling ? 'Rolling…' : 'Roll'}
-        </button>
+      {/* The numbers the Storyteller calls out sit by the button they feed. */}
+      <div className="bo-roll-footer">
+        <Stepper label="Modifier" value={modifier} min={-10} max={10} onChange={setModifier} />
+        <Stepper label="Difficulty" value={difficulty} min={0} max={15} onChange={setDifficulty} />
+        <div className="bo-roll-actions">
+          <GhostButton onClick={onClose}>Cancel</GhostButton>
+          <button
+            type="button"
+            className="bo-solid"
+            onClick={doRoll}
+            disabled={rolling || !composition.canRoll}
+          >
+            {rolling ? 'Rolling…' : 'Roll'}
+          </button>
+        </div>
       </div>
+
+      {oddsOpen && composition.canRoll ? (
+        <OddsPopover
+          anchor={oddsRef.current}
+          basicDice={basicDice}
+          hungerDice={advancedDice}
+          difficulty={difficulty}
+          onClose={closeOdds}
+        />
+      ) : null}
     </Modal>
   )
 }

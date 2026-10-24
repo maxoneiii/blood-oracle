@@ -322,7 +322,7 @@ function TreeNode({
         })}
 
         {!powers.length ? (
-          <span style={{ color: 'var(--bo-text-faint)', fontStyle: 'italic', fontSize: '15px' }}>
+          <span style={{ color: 'var(--bo-text-faint)', fontStyle: 'italic', fontSize: 'var(--bo-size-note)' }}>
             No powers inscribed.
           </span>
         ) : null}

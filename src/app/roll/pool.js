@@ -6,6 +6,7 @@ import {
   equippedWeaponCount,
   armorRating
 } from '../schema/inventory.js'
+import { readSpecialties } from '../schema/specialties.js'
 
 /**
  * Everything that decides how many dice a roll uses, kept separate from the UI
@@ -25,6 +26,28 @@ export function slotValue(actor, slot) {
   if (slot.kind === 'skill') return Number(actor.system.skills?.[slot.id]?.value) || 0
   if (slot.kind === 'discipline') return Number(actor.system.disciplines?.[slot.id]?.value) || 0
   return 0
+}
+
+/**
+ * The specialties a pool can use, grouped by the skills in it, each skill once:
+ *   [{ skillId, skillLabel, entries: [{ key, text, granted, skillLabel }] }]
+ * Skills without specialties are left out.
+ */
+export function specialtyChoicesFor(actor, slots) {
+  const seen = new Set()
+  const groups = []
+  for (const slot of slots) {
+    if (slot?.kind !== 'skill' || !slot.id || seen.has(slot.id)) continue
+    seen.add(slot.id)
+    const entries = readSpecialties(actor, slot.id).map((entry) => ({
+      key: `${slot.id}::${entry.text}`,
+      text: entry.text,
+      granted: entry.granted,
+      skillLabel: slot.label
+    }))
+    if (entries.length) groups.push({ skillId: slot.id, skillLabel: slot.label, entries })
+  }
+  return groups
 }
 
 /** A track counts as impaired once damage fills it completely. */
@@ -56,13 +79,18 @@ export function composePool(actor, { slots, modifier = 0, options = {} }) {
   const surge = options.bloodSurge ? row.surge : 0
   if (surge) parts.push({ label: 'Blood surge', value: surge })
 
-  // Specialty: one die when the chosen skill has one and the player applies it.
-  const skillSlot = slots.find((slot) => slot?.kind === 'skill' && slot.id)
-  const specialtyText = skillSlot
-    ? (actor.system.skills?.[skillSlot.id]?.bonuses ?? []).map((b) => b.source).filter(Boolean).join(', ')
-    : ''
-  const specialty = options.useSpecialty && specialtyText ? 1 : 0
-  if (specialty) parts.push({ label: 'Specialty', value: specialty })
+  // Specialty: one die, from one specialty, whichever skill in the pool it
+  // belongs to. The player picks it by key; an unknown key applies nothing.
+  const specialtyChoices = specialtyChoicesFor(actor, slots)
+  const chosenSpecialty = options.specialty
+    ? specialtyChoices.flatMap((group) => group.entries).find((entry) => entry.key === options.specialty) ?? null
+    : null
+  const specialty = chosenSpecialty ? 1 : 0
+  if (chosenSpecialty) {
+    const name =
+      specialtyChoices.length > 1 ? `${chosenSpecialty.skillLabel}: ${chosenSpecialty.text}` : chosenSpecialty.text
+    parts.push({ label: `Specialty (${name})`, value: specialty })
+  }
 
   // Resonance: one die when the roll uses a discipline the current resonance
   // boosts, at Intense or Acute.
@@ -111,7 +139,9 @@ export function composePool(actor, { slots, modifier = 0, options = {} }) {
   }
 
   // Weapon damage is a flat bonus to successes in V5, not extra dice, so it is
-  // reported alongside the pool rather than added to it.
+  // reported alongside the pool rather than added to it. The first skill in the
+  // pool decides which kind of weapon counts.
+  const skillSlot = slots.find((slot) => slot?.kind === 'skill' && slot.id)
   const weaponType =
     skillSlot?.id === 'melee' ? 'melee' : skillSlot?.id === 'firearms' ? 'ranged' : null
   const weaponBonusAvailable = weaponType ? equippedWeaponBonus(actor, weaponType) : 0
@@ -138,8 +168,9 @@ export function composePool(actor, { slots, modifier = 0, options = {} }) {
     total,
     flooredToOne,
     surge,
-    specialtyText,
-    specialtyAvailable: Boolean(specialtyText),
+    specialtyChoices,
+    chosenSpecialty,
+    specialtyAvailable: specialtyChoices.length > 0,
     resonance,
     resonanceAvailable: Boolean(resonanceApplies),
     potency,

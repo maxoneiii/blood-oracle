@@ -131,7 +131,7 @@ function PotencyBlock({ actor, editable, locked }) {
           Blood potency
         </div>
         {range ? (
-          <span style={{ color: 'var(--bo-text-muted)', fontStyle: 'italic', fontSize: '14px' }}>
+          <span style={{ color: 'var(--bo-text-muted)', fontStyle: 'italic', fontSize: 'var(--bo-size-note)' }}>
             {generation}: {range[0]}–{range[1]} · current {potency}
           </span>
         ) : null}

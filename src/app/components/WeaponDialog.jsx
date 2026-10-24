@@ -67,7 +67,7 @@ export default function WeaponDialog({ initial, onSubmit, onClose }) {
             onClick={() => setClassId(entry.id)}
           >
             <span className="bo-weapon-bonus">+{entry.bonus}</span>
-            <span>
+            <span className="bo-weapon-text">
               <span className="bo-weapon-class-name">{entry.label}</span>
               <span className="bo-weapon-examples">{entry.examples}</span>
             </span>

@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react'
+import { Fragment, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react'
 import Select from '../components/Select.jsx'
 import {
   CARD_WIDTH,
@@ -44,6 +44,16 @@ function ImageIcon() {
   )
 }
 
+function LinkIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 16 16" style={{ display: 'block' }}>
+      <circle cx="3.5" cy="12.5" r="2" fill="none" stroke="currentColor" />
+      <circle cx="12.5" cy="3.5" r="2" fill="none" stroke="currentColor" />
+      <path d="M5 11l6-6" stroke="currentColor" strokeWidth="1.3" strokeDasharray="2 1.6" />
+    </svg>
+  )
+}
+
 function EyeIcon({ open }) {
   return (
     <svg width="13" height="13" viewBox="0 0 16 16" style={{ display: 'block' }}>
@@ -67,7 +77,18 @@ export default function BoardApp({ store }) {
 
   const [pan, setPan] = useState({ x: 0, y: 0 })
   const [zoom, setZoom] = useState(1)
+  // The card a line is being drawn from, while it is being drawn.
   const [pending, setPending] = useState(null)
+  // Where the loose end of that line is, in board coordinates, and the card
+  // under it — the line snaps to that card's centre.
+  const [linkCursor, setLinkCursor] = useState(null)
+  const [linkTarget, setLinkTarget] = useState(null)
+  // The line under the pointer, which shows its controls: a × at each end to
+  // remove it, a + in the middle to give it a label.
+  const [hoveredLink, setHoveredLink] = useState(null)
+  // The line whose label is being typed.
+  const [editingLabel, setEditingLabel] = useState(null)
+  const hoverTimerRef = useRef(null)
   const [dragging, setDragging] = useState(null)
   const [editingIds, setEditingIds] = useState(() => new Set())
   const [, setSizeTick] = useState(0)
@@ -78,6 +99,12 @@ export default function BoardApp({ store }) {
   const cardRefs = useRef({})
   const sizesRef = useRef({})
   const fileTargetRef = useRef(null)
+  // Pointer listeners outlive renders, so they read the drawing state here.
+  const pendingRef = useRef(null)
+  // The card whose next click belongs to the line just ended on it.
+  const swallowClickRef = useRef(null)
+  const journalRef = useRef(null)
+  journalRef.current = journal
 
   const { cards, connections, hiddenCount } = journal
     ? visibleBoard(journal, viewer)
@@ -107,14 +134,30 @@ export default function BoardApp({ store }) {
     if (changed) setSizeTick((tick) => tick + 1)
   })
 
+  // Escape abandons a line being drawn, or lets go of a selected one.
   useEffect(() => {
+    if (!pending) return
     const onKey = (event) => {
-      if (event.key !== 'Escape' || !pending) return
+      if (event.key !== 'Escape') return
       event.stopPropagation()
-      setPending(null)
+      endLink()
     }
     document.addEventListener('keydown', onKey, true)
     return () => document.removeEventListener('keydown', onKey, true)
+  }, [pending])
+
+  useEffect(() => () => clearTimeout(hoverTimerRef.current), [])
+
+  // While a line is being drawn its loose end follows the pointer.
+  useEffect(() => {
+    if (!pending) return
+    const onMove = (event) => {
+      setLinkCursor(toWorld(event.clientX, event.clientY))
+      const target = cardAt(event.clientX, event.clientY)
+      setLinkTarget(target && target !== pendingRef.current ? target : null)
+    }
+    window.addEventListener('mousemove', onMove)
+    return () => window.removeEventListener('mousemove', onMove)
   }, [pending])
 
   // Wheel zoom towards the cursor. Registered non-passively so the page does
@@ -144,8 +187,8 @@ export default function BoardApp({ store }) {
   /* ------------------------------------------------------------- pointer */
 
   const startPan = (event) => {
-    if (pending) {
-      setPending(null)
+    if (pendingRef.current) {
+      endLink()
       return
     }
     const sx = event.clientX
@@ -197,6 +240,92 @@ export default function BoardApp({ store }) {
     window.addEventListener('mouseup', up)
   }
 
+  /* -------------------------------------------------------------- linking */
+
+  const toWorld = (clientX, clientY) => {
+    const rect = viewportRef.current?.getBoundingClientRect() ?? { left: 0, top: 0 }
+    return {
+      x: (clientX - rect.left - panRef.current.x) / zoomRef.current,
+      y: (clientY - rect.top - panRef.current.y) / zoomRef.current
+    }
+  }
+
+  /** The id of the card under a screen point, if it is one of this board's. */
+  const cardAt = (clientX, clientY) => {
+    const element = document.elementFromPoint(clientX, clientY)
+    if (!element || !viewportRef.current?.contains(element)) return null
+    return element.closest('[data-board-card]')?.dataset.boardCard ?? null
+  }
+
+  const endLink = () => {
+    pendingRef.current = null
+    setPending(null)
+    setLinkCursor(null)
+    setLinkTarget(null)
+  }
+
+  /** Keep a line's controls up while the pointer is on the line or on them. */
+  const hoverLink = (id) => {
+    clearTimeout(hoverTimerRef.current)
+    setHoveredLink(id)
+  }
+  const unhoverLink = () => {
+    clearTimeout(hoverTimerRef.current)
+    hoverTimerRef.current = setTimeout(() => setHoveredLink(null), 220)
+  }
+
+  /**
+   * Pressing the link button starts a line at once. Dragging and letting go
+   * over a card connects there; a plain click leaves the line following the
+   * pointer until any card is clicked.
+   */
+  const beginLink = (event, card) => {
+    if (event.button !== 0) return
+    event.stopPropagation()
+    event.preventDefault()
+
+    setHoveredLink(null)
+    pendingRef.current = card.id
+    setPending(card.id)
+    setLinkCursor(toWorld(event.clientX, event.clientY))
+
+    const sx = event.clientX
+    const sy = event.clientY
+    const up = (upEvent) => {
+      window.removeEventListener('mouseup', up)
+      if (pendingRef.current !== card.id) return
+      const moved = Math.hypot(upEvent.clientX - sx, upEvent.clientY - sy) > 6
+      if (!moved) return
+      const target = cardAt(upEvent.clientX, upEvent.clientY)
+      if (target && target !== card.id) connect(journalRef.current, card.id, target)
+      endLink()
+    }
+    window.addEventListener('mouseup', up)
+  }
+
+  /**
+   * While a line is out, a press anywhere on a card — title, text, picture or
+   * buttons — ends it there. Captured before the card's own handlers, which
+   * would otherwise start a drag or an edit and swallow the press.
+   */
+  const finishLinkOn = (event, card) => {
+    const from = pendingRef.current
+    if (!from) return
+    event.stopPropagation()
+    event.preventDefault()
+    swallowClickRef.current = card.id
+    // If no click follows (the pointer slid off before release), forget it.
+    const clear = () => {
+      window.removeEventListener('mouseup', clear, true)
+      setTimeout(() => {
+        swallowClickRef.current = null
+      }, 0)
+    }
+    window.addEventListener('mouseup', clear, true)
+    if (from !== card.id) connect(journal, from, card.id)
+    endLink()
+  }
+
   /* ------------------------------------------------------------ geometry */
 
   const positionOf = (card) =>
@@ -206,6 +335,25 @@ export default function BoardApp({ store }) {
     const position = positionOf(card)
     const size = sizesRef.current[card.id] ?? { w: CARD_WIDTH, h: 100 }
     return { x: position.x + size.w / 2, y: position.y + size.h / 2 }
+  }
+
+  /**
+   * Where the line from `card` towards `point` leaves the card, pushed a little
+   * further out — the spot for that end's × button.
+   */
+  const lineEnd = (card, point, gap = 16) => {
+    const centre = centreOf(card)
+    const size = sizesRef.current[card.id] ?? { w: CARD_WIDTH, h: 100 }
+    const dx = point.x - centre.x
+    const dy = point.y - centre.y
+    const length = Math.hypot(dx, dy) || 1
+    const ux = dx / length
+    const uy = dy / length
+    const toEdge = Math.min(
+      Math.abs(ux) > 1e-6 ? size.w / 2 / Math.abs(ux) : Infinity,
+      Math.abs(uy) > 1e-6 ? size.h / 2 / Math.abs(uy) : Infinity
+    )
+    return { x: centre.x + ux * (toEdge + gap), y: centre.y + uy * (toEdge + gap) }
   }
 
   const cardsById = {}
@@ -273,7 +421,7 @@ export default function BoardApp({ store }) {
 
         {pending ? (
           <span className="bo-board-hint">
-            Click another card to connect — Escape or click the board to cancel.
+            Click any card to connect, or drag onto it — Escape or click the board to cancel.
           </span>
         ) : null}
 
@@ -318,7 +466,11 @@ export default function BoardApp({ store }) {
         ) : null}
       </div>
 
-      <div className="bo-board-viewport" ref={viewportRef} onMouseDown={startPan}>
+      <div
+        className={pending ? 'bo-board-viewport is-linking' : 'bo-board-viewport'}
+        ref={viewportRef}
+        onMouseDown={startPan}
+      >
         <div
           className="bo-board-plane"
           style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})` }}
@@ -332,21 +484,50 @@ export default function BoardApp({ store }) {
 
               const a = centreOf(from)
               const b = centreOf(to)
+              const ends = {
+                x1: a.x + WORLD_OFFSET,
+                y1: a.y + WORLD_OFFSET,
+                x2: b.x + WORLD_OFFSET,
+                y2: b.y + WORLD_OFFSET
+              }
 
               return (
-                <line
-                  key={link.id}
-                  x1={a.x + WORLD_OFFSET}
-                  y1={a.y + WORLD_OFFSET}
-                  x2={b.x + WORLD_OFFSET}
-                  y2={b.y + WORLD_OFFSET}
-                  stroke="var(--bo-accent-red)"
-                  strokeWidth="2"
-                />
+                <g key={link.id} className={hoveredLink === link.id ? 'bo-link is-hovered' : 'bo-link'}>
+                  <line className="bo-link-line" {...ends} />
+                  {/* A wide invisible stroke over the thin one, so the line is
+                      easy to hover. Not while another line is being drawn. */}
+                  {editable && !pending ? (
+                    <line
+                      className="bo-link-hit"
+                      {...ends}
+                      onMouseEnter={() => hoverLink(link.id)}
+                      onMouseLeave={unhoverLink}
+                      onMouseDown={(event) => event.stopPropagation()}
+                    />
+                  ) : null}
+                </g>
               )
             })}
+
+            {pending && linkCursor && cardsById[pending]
+              ? (() => {
+                  const a = centreOf(cardsById[pending])
+                  const b = linkTarget && cardsById[linkTarget] ? centreOf(cardsById[linkTarget]) : linkCursor
+                  return (
+                    <line
+                      className="bo-link-draft"
+                      x1={a.x + WORLD_OFFSET}
+                      y1={a.y + WORLD_OFFSET}
+                      x2={b.x + WORLD_OFFSET}
+                      y2={b.y + WORLD_OFFSET}
+                    />
+                  )
+                })()
+              : null}
           </svg>
 
+          {/* Per line: its label, if it has one or is getting one; and, while
+              hovered, a × at each end and a + in the middle for a new label. */}
           {connections.map((link) => {
             const from = cardsById[link.from]
             const to = cardsById[link.to]
@@ -354,35 +535,105 @@ export default function BoardApp({ store }) {
 
             const a = centreOf(from)
             const b = centreOf(to)
-            const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }
+            const mid = { left: `${(a.x + b.x) / 2}px`, top: `${(a.y + b.y) / 2}px` }
+            const label = link.label?.trim() ?? ''
+            const isEditing = editable && editingLabel === link.id
+            const showControls = editable && !pending && hoveredLink === link.id
+            const keepHover = {
+              onMouseEnter: () => hoverLink(link.id),
+              onMouseLeave: unhoverLink,
+              onMouseDown: (event) => event.stopPropagation()
+            }
 
-            return (
-              <div
-                key={link.id}
-                className="bo-link-label"
-                style={{ left: `${mid.x}px`, top: `${mid.y}px` }}
-                onMouseDown={(event) => event.stopPropagation()}
-              >
-                <input
-                  type="text"
-                  defaultValue={link.label}
-                  disabled={!editable}
-                  placeholder="label"
-                  onBlur={(event) => updateConnection(journal, link.id, { label: event.target.value })}
-                  key={link.label}
-                />
-                {editable ? (
+            const pieces = []
+
+            if (isEditing) {
+              pieces.push(
+                <div key="edit" className="bo-link-label is-editing" style={mid} {...keepHover}>
+                  <input
+                    type="text"
+                    defaultValue={link.label ?? ''}
+                    placeholder="label"
+                    autoFocus
+                    onBlur={(event) => {
+                      const next = event.target.value.trim()
+                      setEditingLabel(null)
+                      if (next !== label) updateConnection(journal, link.id, { label: next })
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') event.currentTarget.blur()
+                      if (event.key === 'Escape') {
+                        event.stopPropagation()
+                        event.currentTarget.value = link.label ?? ''
+                        event.currentTarget.blur()
+                      }
+                    }}
+                  />
+                </div>
+              )
+            } else if (label) {
+              pieces.push(
+                <div key="label" className="bo-link-label is-static" style={mid} {...keepHover}>
+                  <span
+                    className={editable ? 'bo-link-text is-clickable' : 'bo-link-text'}
+                    title={editable ? 'Click to edit the label' : undefined}
+                    onClick={editable ? () => setEditingLabel(link.id) : undefined}
+                  >
+                    {label}
+                  </span>
+                  {editable ? (
+                    <button
+                      type="button"
+                      className="bo-link-label-remove"
+                      title="Remove the label (the line stays)"
+                      onClick={() => updateConnection(journal, link.id, { label: '' })}
+                    >
+                      ×
+                    </button>
+                  ) : null}
+                </div>
+              )
+            } else if (showControls) {
+              pieces.push(
+                <button
+                  key="add"
+                  type="button"
+                  className="bo-link-control is-add"
+                  style={mid}
+                  title="Add a label"
+                  {...keepHover}
+                  onClick={() => setEditingLabel(link.id)}
+                >
+                  +
+                </button>
+              )
+            }
+
+            if (showControls) {
+              for (const [key, end] of [
+                ['from', lineEnd(from, b)],
+                ['to', lineEnd(to, a)]
+              ]) {
+                pieces.push(
                   <button
+                    key={key}
                     type="button"
-                    className="bo-mini"
-                    title="Remove this link"
-                    onClick={() => removeConnection(journal, link.id)}
+                    className="bo-link-control is-remove"
+                    style={{ left: `${end.x}px`, top: `${end.y}px` }}
+                    title="Remove this line"
+                    {...keepHover}
+                    onClick={() => {
+                      setHoveredLink(null)
+                      removeConnection(journal, link.id)
+                    }}
                   >
                     ×
                   </button>
-                ) : null}
-              </div>
-            )
+                )
+              }
+            }
+
+            return pieces.length ? <Fragment key={link.id}>{pieces}</Fragment> : null
           })}
 
           {cards.map((card) => {
@@ -396,21 +647,26 @@ export default function BoardApp({ store }) {
                 ref={(element) => {
                   cardRefs.current[card.id] = element
                 }}
+                data-board-card={card.id}
                 className={[
                   'bo-card',
                   card.private ? 'is-private' : '',
-                  isPending ? 'is-pending' : ''
+                  isPending ? 'is-pending' : '',
+                  linkTarget === card.id ? 'is-link-target' : ''
                 ]
                   .filter(Boolean)
                   .join(' ')}
                 style={{ left: `${position.x}px`, top: `${position.y}px`, width: `${CARD_WIDTH}px` }}
-                onMouseDown={(event) => {
+                onMouseDownCapture={(event) => finishLinkOn(event, card)}
+                // The press that ended a line must not also click the button
+                // under it — a card's × would remove the card.
+                onClickCapture={(event) => {
+                  if (swallowClickRef.current !== card.id) return
+                  swallowClickRef.current = null
                   event.stopPropagation()
-                  if (pending && pending !== card.id) {
-                    connect(journal, pending, card.id)
-                    setPending(null)
-                  }
+                  event.preventDefault()
                 }}
+                onMouseDown={(event) => event.stopPropagation()}
               >
                 {/* Tools above, title below: side by side the buttons left the
                     title a sliver, and titles are what you read the board by. */}
@@ -437,11 +693,11 @@ export default function BoardApp({ store }) {
                     </button>
                     <button
                       type="button"
-                      className="bo-mini"
-                      title="Draw a line from this card"
-                      onClick={() => setPending(isPending ? null : card.id)}
+                      className={isPending ? 'bo-mini is-active' : 'bo-mini'}
+                      title="Draw a line from this card — drag it onto another card, or click and then click one"
+                      onMouseDown={(event) => beginLink(event, card)}
                     >
-                      link
+                      <LinkIcon />
                     </button>
                     <button
                       type="button"

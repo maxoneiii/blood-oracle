@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { paletteOf, placement } from './floating.js'
 
 /**
  * A dropdown drawn in the sheet's own style, replacing the native <select>,
@@ -17,39 +18,9 @@ import { createPortal } from 'react-dom'
  * colours intact.
  */
 
-const PALETTE_VARS = [
-  '--bo-text', '--bo-text-dim', '--bo-text-muted', '--bo-text-faint',
-  '--bo-accent', '--bo-accent-red', '--bo-field-bg', '--bo-field-border',
-  '--bo-panel-border', '--bo-rule', '--bo-edge', '--bo-modal-bg'
-]
-
 const SEARCH_FROM = 12
-const MENU_MAX = 320
 
 const norm = (value) => String(value ?? '').toLowerCase()
-
-function paletteOf(element) {
-  const computed = getComputedStyle(element)
-  const style = { fontFamily: computed.fontFamily }
-  for (const name of PALETTE_VARS) {
-    const value = computed.getPropertyValue(name)
-    if (value) style[name] = value.trim()
-  }
-  return style
-}
-
-function placement(trigger) {
-  const rect = trigger.getBoundingClientRect()
-  const below = window.innerHeight - rect.bottom - 8
-  const above = rect.top - 8
-  const openUp = below < 220 && above > below
-  const width = Math.max(rect.width, 220)
-  const left = Math.min(rect.left, window.innerWidth - width - 8)
-
-  return openUp
-    ? { left, width, bottom: window.innerHeight - rect.top + 2, maxHeight: Math.min(MENU_MAX, above) }
-    : { left, width, top: rect.bottom + 2, maxHeight: Math.min(MENU_MAX, below) }
-}
 
 export default function Select({
   value,

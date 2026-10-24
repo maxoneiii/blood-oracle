@@ -66,6 +66,8 @@
      sheet window, which just made everything harder to read. */
   --bo-size-body: 18px;
   --bo-size-label: 14px;
+  /* Secondary notes: parentheticals, toggle notes, hints. One size for all. */
+  --bo-size-note: 16px;
   --bo-line-prose: 1.55;
 }
 
@@ -638,7 +640,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   font-style: italic;
-  font-size: 15px;
+  font-size: var(--bo-size-note);
   color: var(--bo-accent);
   cursor: text;
 }
@@ -775,7 +777,7 @@
 
 .blood-oracle .bo-toggle-note {
   color: var(--bo-text-muted);
-  font-size: 14px;
+  font-size: var(--bo-size-note);
   font-style: italic;
 }
 
@@ -924,7 +926,7 @@
   border-radius: 2px;
   color: var(--bo-text-faint);
   font-family: inherit;
-  font-size: 13px;
+  font-size: var(--bo-size-note);
   font-style: italic;
   text-align: center;
   cursor: pointer;
@@ -1705,7 +1707,7 @@
 
 .blood-oracle .bo-board-hidden {
   color: var(--bo-text-faint);
-  font-size: 14px;
+  font-size: var(--bo-size-note);
   font-style: italic;
 }
 
@@ -2141,7 +2143,7 @@
 }
 
 .blood-oracle .bo-grant-note {
-  font-size: 12px;
+  font-size: var(--bo-size-note);
   font-style: italic;
   color: var(--bo-text-muted);
 }
@@ -2287,7 +2289,7 @@
   padding: 8px 11px;
   margin: 0 0 10px;
   color: var(--bo-text-faint);
-  font-size: 14px;
+  font-size: var(--bo-size-note);
   font-style: italic;
 }
 
@@ -2574,4 +2576,727 @@
   width: auto;
   padding: 3px 8px;
   font-size: 14px;
+}
+
+/* ==========================================================================
+   v0.4 — specialties in the skill row: first one, a "+N" chip, a tooltip and
+   a popover. The tooltip and popover live in <body>, outside .blood-oracle,
+   so their rules are unscoped and carry their own fallbacks.
+   ========================================================================== */
+
+.blood-oracle .bo-spec-zone {
+  flex: 0 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.blood-oracle .bo-spec-zone .bo-specialty {
+  cursor: pointer;
+}
+
+.blood-oracle .bo-spec-zone:hover .bo-specialty {
+  color: color-mix(in srgb, var(--bo-accent) 80%, white);
+}
+
+.blood-oracle .bo-spec-more {
+  flex: none;
+  padding: 0 6px;
+  font-size: 13px;
+  font-style: normal;
+  font-weight: 600;
+  line-height: 17px;
+  color: var(--bo-accent);
+  border: 1px solid color-mix(in srgb, var(--bo-accent) 50%, transparent);
+  border-radius: 9px;
+}
+
+.blood-oracle .bo-spec-zone:hover .bo-spec-more {
+  border-color: var(--bo-accent);
+}
+
+.bo-spec-tip,
+.bo-spec-pop {
+  position: fixed;
+  z-index: 100000;
+  box-sizing: border-box;
+  background: var(--bo-modal-bg, radial-gradient(ellipse at top, #1a0808 0%, #0a0404 100%));
+  background-color: #0c0405;
+  border: 1px solid var(--bo-edge, #8b1a2a);
+  border-radius: 2px;
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.75);
+  color: var(--bo-text, #ede0d8);
+}
+
+.bo-spec-tip {
+  max-width: 340px;
+  padding: 7px 11px;
+  font-size: var(--bo-size-note, 16px);
+  pointer-events: none;
+}
+
+.bo-spec-tip-row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 2px 0;
+  color: var(--bo-accent, #c8a060);
+}
+
+.bo-spec-tip-note {
+  margin-top: 5px;
+  padding-top: 5px;
+  border-top: 1px solid color-mix(in srgb, var(--bo-rule, #5a1020) 70%, transparent);
+  font-size: 13px;
+  color: var(--bo-text-muted, #7a5858);
+}
+
+.bo-spec-origin {
+  display: inline-block;
+  padding: 0 4px;
+  font-size: 11px;
+  font-style: normal;
+  font-variant: small-caps;
+  letter-spacing: 0.06em;
+  line-height: 15px;
+  color: var(--bo-text-muted, #7a5858);
+  border: 1px solid color-mix(in srgb, var(--bo-text-muted, #7a5858) 45%, transparent);
+  border-radius: 2px;
+  cursor: help;
+}
+
+.bo-spec-pop {
+  display: flex;
+  flex-direction: column;
+  font-size: 16px;
+  overflow: hidden;
+}
+
+.bo-spec-pop-head {
+  flex: none;
+  padding: 8px 12px 4px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--bo-accent, #c8a060);
+}
+
+.bo-spec-pop-list {
+  overflow-y: auto;
+  padding: 2px 0 4px;
+}
+
+.bo-spec-pop-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 30px;
+  padding: 0 8px 0 12px;
+}
+
+.bo-spec-pop-row:hover {
+  background: color-mix(in srgb, var(--bo-accent, #c8a060) 7%, transparent);
+}
+
+.bo-spec-pop-text {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--bo-accent, #c8a060);
+}
+
+.bo-spec-pop-row.is-granted .bo-spec-pop-text {
+  color: var(--bo-text-dim, #b89898);
+}
+
+.bo-spec-pop-text.is-writable {
+  cursor: text;
+}
+
+.bo-spec-pop-remove {
+  flex: none;
+  width: 24px;
+  height: 22px;
+  padding: 0;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 2px;
+  color: var(--bo-text-muted, #7a5858);
+  font-family: inherit;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.bo-spec-pop-remove:hover {
+  color: var(--bo-accent-red, #b8302e);
+  border-color: var(--bo-accent-red, #b8302e);
+}
+
+.bo-spec-pop-empty {
+  padding: 4px 12px 6px;
+  font-style: italic;
+  color: var(--bo-text-faint, #5a3838);
+}
+
+.bo-spec-pop-add {
+  flex: none;
+  padding: 6px;
+  border-top: 1px solid color-mix(in srgb, var(--bo-rule, #5a1020) 70%, transparent);
+}
+
+.bo-spec-pop .bo-spec-pop-input {
+  box-sizing: border-box;
+  width: 100%;
+  height: 30px;
+  padding: 0 9px;
+  background: var(--bo-field-bg, rgba(20, 6, 8, 0.6));
+  border: 1px solid var(--bo-field-border, #3a1818);
+  border-radius: 2px;
+  box-shadow: none;
+  color: var(--bo-text, #ede0d8);
+  font-family: inherit;
+  font-size: 15px;
+  outline: none;
+}
+
+.bo-spec-pop .bo-spec-pop-row .bo-spec-pop-input {
+  flex: 1;
+  height: 26px;
+  color: var(--bo-accent, #c8a060);
+}
+
+.bo-spec-pop .bo-spec-pop-input:focus {
+  border-color: var(--bo-edge, #8b1a2a);
+}
+
+/* ==========================================================================
+   v0.4 — weapon and armour class buttons: left aligned, readable examples
+   ========================================================================== */
+
+.blood-oracle .bo-weapon-class {
+  justify-content: flex-start;
+  height: auto;
+}
+
+.blood-oracle .bo-weapon-text {
+  display: block;
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+}
+
+.blood-oracle .bo-weapon-examples {
+  font-size: var(--bo-size-note);
+  font-style: normal;
+}
+
+.blood-oracle .bo-weapon-note {
+  display: block;
+  font-size: var(--bo-size-note);
+  color: color-mix(in srgb, var(--bo-accent) 85%, transparent);
+}
+
+/* ==========================================================================
+   v0.4 — board lines: clickable, optional labels, a line that follows the
+   pointer while it is being drawn
+   ========================================================================== */
+
+.blood-oracle .bo-link-line {
+  stroke: var(--bo-accent-red);
+  stroke-width: 2;
+}
+
+.blood-oracle .bo-link.is-hovered .bo-link-line {
+  stroke: var(--bo-red-glow);
+  stroke-width: 3;
+  filter: drop-shadow(0 0 4px rgba(var(--bo-glow-rgb), 0.8));
+}
+
+/* The SVG ignores the pointer; only this wide transparent stroke takes it. */
+.blood-oracle .bo-link-hit {
+  stroke: transparent;
+  stroke-width: 14;
+  pointer-events: stroke;
+}
+
+.blood-oracle .bo-link-draft {
+  stroke: var(--bo-red-glow);
+  stroke-width: 2;
+  stroke-dasharray: 7 5;
+  stroke-linecap: round;
+}
+
+.blood-oracle .bo-card.is-link-target {
+  border-color: var(--bo-accent);
+  box-shadow: 0 0 16px color-mix(in srgb, var(--bo-accent) 45%, transparent);
+}
+
+.blood-oracle .bo-board-viewport.is-linking,
+.blood-oracle .bo-board-viewport.is-linking * {
+  cursor: crosshair !important;
+}
+
+.blood-oracle .bo-board-viewport.is-linking .bo-card,
+.blood-oracle .bo-board-viewport.is-linking .bo-card * {
+  cursor: pointer !important;
+}
+
+.blood-oracle .bo-mini.is-active {
+  color: var(--bo-red-glow);
+  border-color: var(--bo-red-glow);
+}
+
+.blood-oracle .bo-link-label.is-static {
+  max-width: 240px;
+  padding: 1px 3px 1px 8px;
+  font-size: 13px;
+  color: var(--bo-text);
+}
+
+.blood-oracle .bo-link-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.blood-oracle .bo-link-text.is-clickable {
+  cursor: text;
+}
+
+.blood-oracle .bo-link-label.is-static:hover {
+  border-color: color-mix(in srgb, var(--bo-red-glow) 60%, transparent);
+}
+
+.blood-oracle .bo-link-label-remove {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  color: var(--bo-text-muted);
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.blood-oracle .bo-link-label-remove:hover {
+  color: var(--bo-red-glow);
+}
+
+/* The round buttons that appear on a hovered line. */
+.blood-oracle .bo-link-control {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  background: var(--bo-card-bg);
+  border: 1px solid var(--bo-red-glow);
+  border-radius: 50%;
+  box-shadow: 0 0 8px rgba(var(--bo-glow-rgb), 0.45);
+  color: var(--bo-red-glow);
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.blood-oracle .bo-link-control.is-add {
+  border-color: var(--bo-accent);
+  color: var(--bo-accent);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--bo-accent) 40%, transparent);
+}
+
+.blood-oracle .bo-link-control:hover {
+  background: color-mix(in srgb, currentColor 18%, var(--bo-card-bg));
+}
+
+/* While a line is out, a card is only a target: its buttons and fields rest. */
+.blood-oracle .bo-board-viewport.is-linking .bo-card-tools button,
+.blood-oracle .bo-board-viewport.is-linking .bo-card input,
+.blood-oracle .bo-board-viewport.is-linking .bo-card textarea {
+  pointer-events: none;
+}
+
+.blood-oracle .bo-board-viewport.is-linking .bo-card-tools button:not(.is-active) {
+  opacity: 0.35;
+}
+
+.blood-oracle .bo-link-label.is-editing {
+  border-color: var(--bo-red-glow);
+  box-shadow: 0 0 10px rgba(var(--bo-glow-rgb), 0.45);
+}
+
+.blood-oracle .bo-link-label.is-editing input {
+  width: 130px;
+}
+
+/* ==========================================================================
+   v0.4 — checkboxes: Foundry draws its own box in ::before (and a glyph in
+   ::after) on every checkbox; ours sits under it, hence the doubled square.
+   ========================================================================== */
+
+.blood-oracle input[type='checkbox']::before {
+  content: none !important;
+  display: none !important;
+}
+
+.blood-oracle input[type='checkbox']:not(:checked)::after {
+  content: none !important;
+  display: none !important;
+}
+
+/* Our drawn tick, held against Foundry's glyph rules. */
+.blood-oracle input[type='checkbox']:checked::after {
+  content: '' !important;
+  display: block !important;
+  position: absolute !important;
+  top: 1px !important;
+  right: auto !important;
+  bottom: auto !important;
+  left: 4px !important;
+  width: 4px !important;
+  height: 8px !important;
+  margin: 0 !important;
+  font-size: 0 !important;
+  background: none !important;
+  box-sizing: content-box !important;
+}
+
+/* ==========================================================================
+   v0.4 — roll dialog
+   ========================================================================== */
+
+/* Blood surge, once ticked, reads as the blood it costs. */
+.blood-oracle .bo-toggle.is-surge.is-on > span,
+.blood-oracle .bo-toggle.is-surge.is-on .bo-toggle-note {
+  color: var(--bo-red-glow);
+}
+
+.blood-oracle .bo-toggle.is-surge.is-on input[type='checkbox']:checked {
+  border-color: var(--bo-red-glow);
+  box-shadow: 0 0 8px rgba(var(--bo-glow-rgb), 0.55);
+}
+
+.blood-oracle .bo-toggle.is-surge.is-on input[type='checkbox']:checked::after {
+  border-color: var(--bo-red-glow);
+}
+
+/* Specialty: a row of chips in the place of a checkbox. */
+.blood-oracle .bo-toggle-spacer {
+  flex: none;
+  width: 15px;
+}
+
+.blood-oracle .bo-spec-row {
+  cursor: default;
+  align-items: baseline;
+}
+
+.blood-oracle .bo-spec-row > span:not(.bo-toggle-spacer):not(.bo-toggle-note) {
+  flex: none;
+}
+
+.blood-oracle .bo-spec-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px 6px;
+  min-width: 0;
+}
+
+.blood-oracle .bo-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  width: auto;
+  height: auto;
+  min-height: 0;
+  margin: 0;
+  padding: 1px 10px;
+  background: transparent;
+  border: 1px solid color-mix(in srgb, var(--bo-text-dim) 30%, transparent);
+  border-radius: 12px;
+  box-shadow: none;
+  color: var(--bo-text);
+  font-family: inherit;
+  font-size: var(--bo-size-note);
+  line-height: 1.35;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.blood-oracle .bo-chip:hover {
+  border-color: color-mix(in srgb, var(--bo-accent) 60%, transparent);
+}
+
+.blood-oracle .bo-chip.is-none {
+  color: var(--bo-text-muted);
+}
+
+.blood-oracle .bo-chip.is-selected {
+  color: var(--bo-accent);
+  border-color: var(--bo-accent);
+  background: color-mix(in srgb, var(--bo-accent) 12%, transparent);
+}
+
+.blood-oracle .bo-chip-group {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--bo-text-muted);
+  margin-left: 4px;
+}
+
+.blood-oracle .bo-chip-origin {
+  font-size: 11px;
+  font-variant: small-caps;
+  letter-spacing: 0.06em;
+  color: var(--bo-text-muted);
+}
+
+.blood-oracle .bo-roll-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.blood-oracle .bo-roll-summary .bo-prose {
+  margin: 0;
+}
+
+.blood-oracle .bo-roll-note {
+  margin: 4px 0 0;
+  font-size: var(--bo-size-note);
+  color: var(--bo-text-dim);
+}
+
+.blood-oracle .bo-roll-note.is-faint {
+  color: var(--bo-text-faint);
+  font-style: italic;
+}
+
+.blood-oracle .bo-roll-note.is-accent {
+  color: var(--bo-accent);
+}
+
+.blood-oracle .bo-roll-note.is-red {
+  color: var(--bo-accent-red);
+}
+
+/* Modifier and difficulty beside the buttons they feed. */
+.blood-oracle .bo-roll-footer {
+  display: flex;
+  align-items: flex-end;
+  gap: 14px;
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--bo-panel-border);
+}
+
+.blood-oracle .bo-roll-actions {
+  display: flex;
+  gap: 10px;
+  margin-left: auto;
+}
+
+/* Both buttons the size of the sheet's other buttons; Roll differs in colour only. */
+.blood-oracle .bo-roll-actions .bo-ghost,
+.blood-oracle .bo-roll-actions .bo-solid {
+  box-sizing: border-box;
+  height: 30px;
+  min-width: 96px;
+  padding: 0 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.blood-oracle .bo-roll-actions .bo-solid:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.blood-oracle .bo-stepper {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.blood-oracle .bo-stepper-label {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--bo-text-muted);
+}
+
+.blood-oracle .bo-stepper-box {
+  display: flex;
+  align-items: stretch;
+  height: 30px;
+  border: 1px solid var(--bo-field-border);
+  border-radius: 2px;
+  background: var(--bo-field-bg);
+}
+
+.blood-oracle .bo-stepper-button {
+  width: 26px;
+  height: auto;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  color: var(--bo-text-dim);
+  font-family: inherit;
+  font-size: 17px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.blood-oracle .bo-stepper-button:hover:not(:disabled) {
+  color: var(--bo-accent);
+}
+
+.blood-oracle .bo-stepper-button:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.blood-oracle .bo-stepper-value {
+  width: 34px;
+  height: auto;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-left: 1px solid var(--bo-field-border);
+  border-right: 1px solid var(--bo-field-border);
+  border-radius: 0;
+  box-shadow: none;
+  color: var(--bo-text);
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 600;
+  text-align: center;
+  outline: none;
+}
+
+/* ==========================================================================
+   v0.4 — odds popover (in <body>, so unscoped with fallbacks)
+   ========================================================================== */
+
+.bo-odds {
+  position: fixed;
+  z-index: 100000;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  overflow-y: auto;
+  padding-bottom: 8px;
+  background: var(--bo-modal-bg, radial-gradient(ellipse at top, #1a0808 0%, #0a0404 100%));
+  background-color: #0c0405;
+  border: 1px solid var(--bo-edge, #8b1a2a);
+  border-radius: 2px;
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.75);
+  color: var(--bo-text, #ede0d8);
+  font-size: 15px;
+}
+
+.bo-odds-head {
+  padding: 10px 14px 6px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--bo-accent, #c8a060);
+}
+
+.bo-odds-summary {
+  padding: 2px 14px 8px;
+  border-bottom: 1px solid color-mix(in srgb, var(--bo-rule, #5a1020) 70%, transparent);
+}
+
+.bo-odds-line {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 3px 0;
+}
+
+.bo-odds-value {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.bo-odds-line.is-win .bo-odds-value { color: var(--bo-text, #ede0d8); }
+.bo-odds-line.is-crit .bo-odds-value { color: var(--bo-accent, #c8a060); }
+.bo-odds-line.is-messy .bo-odds-value,
+.bo-odds-line.is-bestial .bo-odds-value { color: var(--bo-red-glow, #ff3050); }
+.bo-odds-line.is-fail .bo-odds-value { color: var(--bo-text-dim, #b89898); }
+
+.bo-odds-hint {
+  padding: 6px 14px 0;
+  font-size: 13px;
+  font-style: italic;
+  color: var(--bo-text-muted, #7a5858);
+}
+
+.bo-odds-table {
+  width: calc(100% - 20px);
+  margin: 6px 10px 0;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+.bo-odds-table th {
+  padding: 4px 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  text-align: right;
+  color: var(--bo-text-muted, #7a5858);
+  background: none;
+  border: none;
+}
+
+.bo-odds-table th:first-child,
+.bo-odds-table td:first-child {
+  text-align: left;
+}
+
+.bo-odds-table td {
+  padding: 3px 6px;
+  text-align: right;
+  border: none;
+  border-top: 1px solid color-mix(in srgb, var(--bo-rule, #5a1020) 40%, transparent);
+}
+
+.bo-odds-table tr.is-target td {
+  color: var(--bo-accent, #c8a060);
+  font-weight: 700;
+  background: color-mix(in srgb, var(--bo-accent, #c8a060) 10%, transparent);
 }
